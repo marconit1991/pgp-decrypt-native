@@ -10,6 +10,7 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.openpgp.*
+import org.bouncycastle.openpgp.operator.bc.BcKeyFingerprintCalculator
 import org.bouncycastle.openpgp.operator.jcajce.JcePBESecretKeyDecryptorBuilder
 import org.bouncycastle.openpgp.operator.jcajce.JcePublicKeyDataDecryptorBuilder
 import java.io.ByteArrayInputStream
@@ -103,7 +104,8 @@ class MainActivity : AppCompatActivity() {
             // Wczytaj klucz prywatny
             val privateKeyStream = ByteArrayInputStream(privateKeyText.toByteArray())
             val decoderStream = PGPUtil.getDecoderStream(privateKeyStream)
-            val secretKeyRingCollection = PGPSecretKeyRingCollection(decoderStream)
+            val keyFingerprintCalculator = BcKeyFingerprintCalculator()
+            val secretKeyRingCollection = PGPSecretKeyRingCollection(decoderStream, keyFingerprintCalculator)
             
             // Znajdź pierwszy klucz prywatny (może być szyfrowany hasłem)
             var secretKey: PGPSecretKey? = null
@@ -126,7 +128,8 @@ class MainActivity : AppCompatActivity() {
             // Wczytaj zaszyfrowaną wiadomość
             val encryptedStream = ByteArrayInputStream(encryptedMessage.toByteArray())
             val encryptedDecoderStream = PGPUtil.getDecoderStream(encryptedStream)
-            val pgpObjectFactory = PGPObjectFactory(encryptedDecoderStream)
+            val keyFingerprintCalculator = BcKeyFingerprintCalculator()
+            val pgpObjectFactory = PGPObjectFactory(encryptedDecoderStream, keyFingerprintCalculator)
             
             // Pobierz listę zaszyfrowanych danych
             var encryptedDataList: PGPEncryptedDataList? = null
@@ -190,7 +193,7 @@ class MainActivity : AppCompatActivity() {
                 .build(pgpPrivateKey)
             
             val encryptedInputStream = publicKeyEncryptedData.getDataStream(dataDecryptorFactory)
-            val literalDataFactory = PGPObjectFactory(encryptedInputStream)
+            val literalDataFactory = PGPObjectFactory(encryptedInputStream, keyFingerprintCalculator)
             
             // Pobierz odszyfrowane dane
             var decryptedData: ByteArray? = null
@@ -204,7 +207,9 @@ class MainActivity : AppCompatActivity() {
                     
                     val buffer = ByteArray(4096)
                     var bytesRead: Int
-                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                    while (true) {
+                        bytesRead = inputStream.read(buffer)
+                        if (bytesRead == -1) break
                         outputStream.write(buffer, 0, bytesRead)
                     }
                     
@@ -212,14 +217,16 @@ class MainActivity : AppCompatActivity() {
                 }
                 is PGPCompressedData -> {
                     val compressedData = obj
-                    val compressedFactory = PGPObjectFactory(compressedData.dataStream)
+                    val compressedFactory = PGPObjectFactory(compressedData.dataStream, keyFingerprintCalculator)
                     val literalData = compressedFactory.nextObject() as PGPLiteralData
                     val inputStream = literalData.inputStream
                     val outputStream = ByteArrayOutputStream()
                     
                     val buffer = ByteArray(4096)
                     var bytesRead: Int
-                    while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                    while (true) {
+                        bytesRead = inputStream.read(buffer)
+                        if (bytesRead == -1) break
                         outputStream.write(buffer, 0, bytesRead)
                     }
                     
