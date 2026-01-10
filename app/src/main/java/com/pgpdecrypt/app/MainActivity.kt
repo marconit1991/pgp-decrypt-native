@@ -28,12 +28,17 @@ class MainActivity : AppCompatActivity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
         
-        // Dodaj BouncyCastle provider
-        if (Security.getProvider("BC") == null) {
-            Security.addProvider(BouncyCastleProvider())
+        try {
+            // Dodaj BouncyCastle provider
+            if (Security.getProvider("BC") == null) {
+                Security.addProvider(BouncyCastleProvider())
+            }
+        } catch (e: Exception) {
+            // Ignoruj jeśli już dodany
         }
+        
+        setContentView(R.layout.activity_main)
         
         // Inicjalizuj widoki
         encryptedMessageEditText = findViewById(R.id.encryptedMessageEditText)
