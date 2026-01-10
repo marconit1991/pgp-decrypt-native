@@ -34,21 +34,16 @@ jobs:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
         PATH: ${{ env.PATH }}
         
+    - name: Install required tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y coreutils findutils
+        
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
       
-    - name: Install missing tools
-      run: |
-        which uname || echo "uname not found, will use alternative"
-        which xargs || apt-get update && apt-get install -y findutils || true
-      
     - name: Build APK
-      run: |
-        # Użyj gradle bezpośrednio jeśli gradlew nie działa
-        if ! ./gradlew assembleDebug --no-daemon --stacktrace 2>&1; then
-          echo "Gradlew failed, trying with gradle wrapper jar directly..."
-          java -jar gradle/wrapper/gradle-wrapper.jar assembleDebug --no-daemon --stacktrace
-        fi
+      run: ./gradlew assembleDebug --no-daemon --stacktrace
       env:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
         ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
