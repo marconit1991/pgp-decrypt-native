@@ -11,12 +11,12 @@ import com.google.android.material.textfield.TextInputEditText
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.openpgp.*
 import org.bouncycastle.openpgp.operator.bc.BcKeyFingerprintCalculator
+import org.bouncycastle.openpgp.operator.bc.BcPublicKeyDataDecryptorFactory
 import org.bouncycastle.openpgp.operator.jcajce.JcePBESecretKeyDecryptorBuilder
-import org.bouncycastle.openpgp.operator.jcajce.JcePublicKeyDataDecryptorBuilder
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.security.Security
-import java.util.*
 
 class MainActivity : AppCompatActivity() {
     
@@ -100,14 +100,15 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun decryptPGP(encryptedMessage: String, privateKeyText: String): String {
+        val fingerprintCalculator = BcKeyFingerprintCalculator()
+        
         try {
             // Wczytaj klucz prywatny
             val privateKeyStream = ByteArrayInputStream(privateKeyText.toByteArray())
             val decoderStream = PGPUtil.getDecoderStream(privateKeyStream)
-            val keyFingerprintCalculator = BcKeyFingerprintCalculator()
-            val secretKeyRingCollection = PGPSecretKeyRingCollection(decoderStream, keyFingerprintCalculator)
+            val secretKeyRingCollection = PGPSecretKeyRingCollection(decoderStream, fingerprintCalculator)
             
-            // Znajdź pierwszy klucz prywatny (może być szyfrowany hasłem)
+            // Znajdź pierwszy klucz prywatny
             var secretKey: PGPSecretKey? = null
             val keyRings = secretKeyRingCollection.keyRings
             while (keyRings.hasNext()) {
@@ -125,11 +126,17 @@ class MainActivity : AppCompatActivity() {
                 throw Exception("Nie znaleziono klucza prywatnego. Upewnij się, że klucz zawiera nagłówki -----BEGIN PGP PRIVATE KEY BLOCK-----")
             }
             
+            // Wyodrębnij klucz prywatny (bez hasła)
+            val pgpPrivateKey = secretKey.extractPrivateKey(
+                JcePBESecretKeyDecryptorBuilder()
+                    .setProvider("BC")
+                    .build(charArrayOf())
+            )
+            
             // Wczytaj zaszyfrowaną wiadomość
             val encryptedStream = ByteArrayInputStream(encryptedMessage.toByteArray())
             val encryptedDecoderStream = PGPUtil.getDecoderStream(encryptedStream)
-            val keyFingerprintCalculator = BcKeyFingerprintCalculator()
-            val pgpObjectFactory = PGPObjectFactory(encryptedDecoderStream, keyFingerprintCalculator)
+            val pgpObjectFactory = PGPObjectFactory(encryptedDecoderStream, fingerprintCalculator)
             
             // Pobierz listę zaszyfrowanych danych
             var encryptedDataList: PGPEncryptedDataList? = null
@@ -155,45 +162,25 @@ class MainActivity : AppCompatActivity() {
                 throw Exception("Nie znaleziono zaszyfrowanych danych")
             }
             
-            // Znajdź odpowiedni klucz do odszyfrowania
-            var pgpPrivateKey: PGPPrivateKey? = null
+            // Znajdź odpowiedni zaszyfrowany obiekt
             var publicKeyEncryptedData: PGPPublicKeyEncryptedData? = null
-            
             val encryptedDataObjects = encryptedDataList.encryptedDataObjects
             while (encryptedDataObjects.hasNext()) {
                 val encryptedDataObj = encryptedDataObjects.next()
                 if (encryptedDataObj is PGPPublicKeyEncryptedData) {
-                    try {
-                        // Spróbuj wyodrębnić klucz prywatny (bez hasła)
-                        pgpPrivateKey = secretKey.extractPrivateKey(
-                            JcePBESecretKeyDecryptorBuilder()
-                                .setProvider("BC")
-                                .build(charArrayOf())
-                        )
-                        
-                        // Sprawdź czy klucz pasuje do zaszyfrowanych danych
-                        if (pgpPrivateKey != null) {
-                            publicKeyEncryptedData = encryptedDataObj
-                            break
-                        }
-                    } catch (e: Exception) {
-                        // Klucz może być chroniony hasłem - kontynuuj szukanie
-                        continue
-                    }
+                    publicKeyEncryptedData = encryptedDataObj
+                    break
                 }
             }
             
-            if (pgpPrivateKey == null || publicKeyEncryptedData == null) {
-                throw Exception("Nie można znaleźć odpowiedniego klucza. Upewnij się, że:\n1. Klucz prywatny pasuje do klucza użytego do szyfrowania\n2. Klucz nie jest chroniony hasłem (lub użyj klucza bez hasła)")
+            if (publicKeyEncryptedData == null) {
+                throw Exception("Nie znaleziono zaszyfrowanych danych kluczem publicznym")
             }
             
             // Odszyfruj dane
-            val dataDecryptorFactory = JcePublicKeyDataDecryptorBuilder()
-                .setProvider("BC")
-                .build(pgpPrivateKey)
-            
-            val encryptedInputStream = publicKeyEncryptedData.getDataStream(dataDecryptorFactory)
-            val literalDataFactory = PGPObjectFactory(encryptedInputStream, keyFingerprintCalculator)
+            val dataDecryptorFactory = BcPublicKeyDataDecryptorFactory(pgpPrivateKey)
+            val encryptedInputStream: InputStream = publicKeyEncryptedData.getDataStream(dataDecryptorFactory)
+            val literalDataFactory = PGPObjectFactory(encryptedInputStream, fingerprintCalculator)
             
             // Pobierz odszyfrowane dane
             var decryptedData: ByteArray? = null
@@ -201,36 +188,13 @@ class MainActivity : AppCompatActivity() {
             
             when (obj) {
                 is PGPLiteralData -> {
-                    val literalData = obj
-                    val inputStream = literalData.inputStream
-                    val outputStream = ByteArrayOutputStream()
-                    
-                    val buffer = ByteArray(4096)
-                    var bytesRead: Int
-                    while (true) {
-                        bytesRead = inputStream.read(buffer)
-                        if (bytesRead == -1) break
-                        outputStream.write(buffer, 0, bytesRead)
-                    }
-                    
-                    decryptedData = outputStream.toByteArray()
+                    decryptedData = readLiteralData(obj)
                 }
                 is PGPCompressedData -> {
                     val compressedData = obj
-                    val compressedFactory = PGPObjectFactory(compressedData.dataStream, keyFingerprintCalculator)
+                    val compressedFactory = PGPObjectFactory(compressedData.dataStream, fingerprintCalculator)
                     val literalData = compressedFactory.nextObject() as PGPLiteralData
-                    val inputStream = literalData.inputStream
-                    val outputStream = ByteArrayOutputStream()
-                    
-                    val buffer = ByteArray(4096)
-                    var bytesRead: Int
-                    while (true) {
-                        bytesRead = inputStream.read(buffer)
-                        if (bytesRead == -1) break
-                        outputStream.write(buffer, 0, bytesRead)
-                    }
-                    
-                    decryptedData = outputStream.toByteArray()
+                    decryptedData = readLiteralData(literalData)
                 }
                 else -> {
                     throw Exception("Nieoczekiwany typ danych PGP: ${obj.javaClass.simpleName}")
@@ -248,6 +212,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    private fun readLiteralData(literalData: PGPLiteralData): ByteArray {
+        val inputStream = literalData.inputStream
+        val outputStream = ByteArrayOutputStream()
+        
+        val buffer = ByteArray(4096)
+        var bytesRead: Int
+        while (true) {
+            bytesRead = inputStream.read(buffer)
+            if (bytesRead == -1) break
+            outputStream.write(buffer, 0, bytesRead)
+        }
+        
+        return outputStream.toByteArray()
+    }
+    
     private fun copyToClipboard() {
         val decryptedText = decryptedResultEditText.text?.toString() ?: ""
         
@@ -263,4 +242,3 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, getString(R.string.copy_success), Toast.LENGTH_SHORT).show()
     }
 }
-
