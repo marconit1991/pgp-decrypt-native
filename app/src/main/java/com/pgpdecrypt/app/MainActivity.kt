@@ -98,34 +98,54 @@ class MainActivity : AppCompatActivity() {
         // Uruchom w tle
         Thread {
             try {
+                Log.d("MainActivity", "Starting decryption...")
                 val decrypted = decryptPGP(encryptedMessage, privateKeyText)
+                Log.d("MainActivity", "Decryption successful")
                 
                 runOnUiThread {
-                    decryptedResultEditText.setText(decrypted)
-                    copyButton.isEnabled = true
-                    decryptButton.isEnabled = true
-                    decryptButton.text = getString(R.string.decrypt_button)
-                    Toast.makeText(this, "✅ Odszyfrowano pomyślnie!", Toast.LENGTH_SHORT).show()
+                    try {
+                        decryptedResultEditText.setText(decrypted)
+                        copyButton.isEnabled = true
+                        decryptButton.isEnabled = true
+                        decryptButton.text = getString(R.string.decrypt_button)
+                        Toast.makeText(this, "✅ Odszyfrowano pomyślnie!", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error updating UI", e)
+                        Toast.makeText(this, "Błąd aktualizacji UI: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
                 }
             } catch (e: Exception) {
+                Log.e("MainActivity", "Decryption error", e)
+                e.printStackTrace()
                 runOnUiThread {
-                    decryptedResultEditText.setText("❌ Błąd: ${e.message}")
-                    decryptButton.isEnabled = true
-                    decryptButton.text = getString(R.string.decrypt_button)
-                    Toast.makeText(this, "${getString(R.string.error_decrypt)}: ${e.message}", Toast.LENGTH_LONG).show()
+                    try {
+                        decryptedResultEditText.setText("❌ Błąd: ${e.message}\n\n${e.stackTraceToString()}")
+                        decryptButton.isEnabled = true
+                        decryptButton.text = getString(R.string.decrypt_button)
+                        Toast.makeText(this, "${getString(R.string.error_decrypt)}: ${e.message}", Toast.LENGTH_LONG).show()
+                    } catch (uiError: Exception) {
+                        Log.e("MainActivity", "Error showing error message", uiError)
+                    }
                 }
             }
         }.start()
     }
     
     private fun decryptPGP(encryptedMessage: String, privateKeyText: String): String {
-        val fingerprintCalculator = BcKeyFingerprintCalculator()
-        
         try {
+            Log.d("MainActivity", "Initializing BouncyCastle...")
+            val fingerprintCalculator = BcKeyFingerprintCalculator()
+            
+            // Upewnij się że BouncyCastle jest dostępny
+            if (Security.getProvider("BC") == null) {
+                Security.addProvider(BouncyCastleProvider())
+            }
             // Wczytaj klucz prywatny
+            Log.d("MainActivity", "Loading private key...")
             val privateKeyStream = ByteArrayInputStream(privateKeyText.toByteArray())
             val decoderStream = PGPUtil.getDecoderStream(privateKeyStream)
             val secretKeyRingCollection = PGPSecretKeyRingCollection(decoderStream, fingerprintCalculator)
+            Log.d("MainActivity", "Private key loaded")
             
             // Znajdź pierwszy klucz prywatny
             var secretKey: PGPSecretKey? = null
@@ -153,9 +173,11 @@ class MainActivity : AppCompatActivity() {
             )
             
             // Wczytaj zaszyfrowaną wiadomość
+            Log.d("MainActivity", "Loading encrypted message...")
             val encryptedStream = ByteArrayInputStream(encryptedMessage.toByteArray())
             val encryptedDecoderStream = PGPUtil.getDecoderStream(encryptedStream)
             val pgpObjectFactory = PGPObjectFactory(encryptedDecoderStream, fingerprintCalculator)
+            Log.d("MainActivity", "Encrypted message loaded")
             
             // Pobierz listę zaszyfrowanych danych
             var encryptedDataList: PGPEncryptedDataList? = null
