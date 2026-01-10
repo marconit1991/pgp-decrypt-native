@@ -183,26 +183,21 @@ class MainActivity : AppCompatActivity() {
             val literalDataFactory = PGPObjectFactory(encryptedInputStream, fingerprintCalculator)
             
             // Pobierz odszyfrowane dane
-            var decryptedData: ByteArray? = null
             obj = literalDataFactory.nextObject()
             
-            when (obj) {
+            val decryptedData = when (obj) {
                 is PGPLiteralData -> {
-                    decryptedData = readLiteralData(obj)
+                    readLiteralData(obj)
                 }
                 is PGPCompressedData -> {
                     val compressedData = obj
                     val compressedFactory = PGPObjectFactory(compressedData.dataStream, fingerprintCalculator)
                     val literalData = compressedFactory.nextObject() as PGPLiteralData
-                    decryptedData = readLiteralData(literalData)
+                    readLiteralData(literalData)
                 }
                 else -> {
                     throw Exception("Nieoczekiwany typ danych PGP: ${obj.javaClass.simpleName}")
                 }
-            }
-            
-            if (decryptedData == null) {
-                throw Exception("Nie udało się odszyfrować danych")
             }
             
             return String(decryptedData, Charsets.UTF_8)
