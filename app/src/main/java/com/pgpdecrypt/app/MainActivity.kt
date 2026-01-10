@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
@@ -30,31 +31,44 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         
         try {
+            setContentView(R.layout.activity_main)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error setting content view", e)
+            Toast.makeText(this, "Błąd ładowania interfejsu: ${e.message}", Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
+        
+        try {
             // Dodaj BouncyCastle provider
             if (Security.getProvider("BC") == null) {
                 Security.addProvider(BouncyCastleProvider())
             }
         } catch (e: Exception) {
-            // Ignoruj jeśli już dodany
+            Log.w("MainActivity", "BouncyCastle provider already added or error", e)
         }
         
-        setContentView(R.layout.activity_main)
-        
-        // Inicjalizuj widoki
-        encryptedMessageEditText = findViewById(R.id.encryptedMessageEditText)
-        privateKeyEditText = findViewById(R.id.privateKeyEditText)
-        decryptedResultEditText = findViewById(R.id.decryptedResultEditText)
-        decryptButton = findViewById(R.id.decryptButton)
-        copyButton = findViewById(R.id.copyButton)
-        
-        // Przycisk odszyfrowywania
-        decryptButton.setOnClickListener {
-            decryptPGPMessage()
-        }
-        
-        // Przycisk kopiowania
-        copyButton.setOnClickListener {
-            copyToClipboard()
+        try {
+            // Inicjalizuj widoki
+            encryptedMessageEditText = findViewById(R.id.encryptedMessageEditText)
+            privateKeyEditText = findViewById(R.id.privateKeyEditText)
+            decryptedResultEditText = findViewById(R.id.decryptedResultEditText)
+            decryptButton = findViewById(R.id.decryptButton)
+            copyButton = findViewById(R.id.copyButton)
+            
+            // Przycisk odszyfrowywania
+            decryptButton.setOnClickListener {
+                decryptPGPMessage()
+            }
+            
+            // Przycisk kopiowania
+            copyButton.setOnClickListener {
+                copyToClipboard()
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error initializing views", e)
+            Toast.makeText(this, "Błąd inicjalizacji: ${e.message}", Toast.LENGTH_LONG).show()
+            finish()
         }
     }
     
