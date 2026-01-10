@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace 'com.pgpdecrypt.native'
+    namespace 'com.pgpdecrypt.app'
     compileSdk 33
 
     defaultConfig {
-        applicationId "com.pgpdecrypt.native"
+        applicationId "com.pgpdecrypt.app"
         minSdk 24
         targetSdk 33
         versionCode 1

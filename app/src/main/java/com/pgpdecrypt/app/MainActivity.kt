@@ -1,4 +1,4 @@
-package com.pgpdecrypt.native
+package com.pgpdecrypt.app
 
 import android.content.ClipData
 import android.content.ClipboardManager
