@@ -28,18 +28,21 @@ jobs:
         build-tools: 33.0.0
         
     - name: Accept Android SDK licenses
-      run: yes | sdkmanager --licenses || true
+      run: |
+        yes | sdkmanager --licenses || true
       env:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
+        PATH: ${{ env.PATH }}
         
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
       
     - name: Build APK
-      run: ./gradlew assembleDebug --no-daemon --stacktrace
+      run: ./gradlew assembleDebug --no-daemon --stacktrace --info
       env:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
         ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
+        PATH: ${{ env.PATH }}
         
     - name: Upload APK
       uses: actions/upload-artifact@v4
