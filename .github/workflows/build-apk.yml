@@ -39,15 +39,10 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y coreutils findutils
         
-    - name: Fix gradlew script
+    - name: Build APK using Gradle
       run: |
-        # Napraw gradlew - zastąp uname i xargs
-        sed -i 's/$( uname )/$(uname 2>\/dev\/null || echo Linux)/' gradlew || true
-        sed -i 's/command -v xargs/command -v xargs || echo \/usr\/bin\/xargs/' gradlew || true
-        chmod +x gradlew
-        
-    - name: Build APK
-      run: ./gradlew assembleDebug --no-daemon --stacktrace
+        # Użyj java bezpośrednio z gradle wrapper jar
+        java -cp gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain assembleDebug --no-daemon --stacktrace
       env:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
         ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
