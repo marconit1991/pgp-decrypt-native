@@ -14,8 +14,9 @@
     <string name="load_from_file">📁 Wczytaj z pliku</string>
     <string name="file_loaded">Plik wczytany pomyślnie!</string>
     <string name="error_reading_file">Błąd odczytu pliku</string>
-    <string name="private_key_password_hint">Hasło do klucza prywatnego (opcjonalne)</string>
-    <string name="password_optional">Hasło (opcjonalne)</string>
+    <string name="password_dialog_title">🔐 Hasło do klucza prywatnego</string>
+    <string name="password_dialog_message">Ten klucz prywatny wymaga hasła do odszyfrowania.</string>
+    <string name="password_dialog_hint">Wprowadź hasło</string>
 </resources>
 
 

@@ -1,5 +1,6 @@
 package com.pgpdecrypt.app
 
+import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -7,6 +8,9 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
+import android.view.LayoutInflater
+import android.view.View
+import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -27,11 +31,12 @@ class MainActivity : AppCompatActivity() {
     
     private lateinit var encryptedMessageEditText: TextInputEditText
     private lateinit var privateKeyEditText: TextInputEditText
-    private lateinit var privateKeyPasswordEditText: TextInputEditText
     private lateinit var decryptedResultEditText: TextInputEditText
     private lateinit var decryptButton: MaterialButton
     private lateinit var copyButton: MaterialButton
     private lateinit var loadKeyFromFileButton: MaterialButton
+    
+    private var pendingDecryption: Pair<String, String>? = null // encryptedMessage, privateKeyText
     
     private val executorService = Executors.newSingleThreadExecutor()
     
@@ -66,7 +71,6 @@ class MainActivity : AppCompatActivity() {
             // Inicjalizuj widoki
             encryptedMessageEditText = findViewById(R.id.encryptedMessageEditText)
             privateKeyEditText = findViewById(R.id.privateKeyEditText)
-            privateKeyPasswordEditText = findViewById(R.id.privateKeyPasswordEditText)
             decryptedResultEditText = findViewById(R.id.decryptedResultEditText)
             decryptButton = findViewById(R.id.decryptButton)
             copyButton = findViewById(R.id.copyButton)
@@ -96,7 +100,6 @@ class MainActivity : AppCompatActivity() {
     private fun decryptPGPMessage() {
         val encryptedMessage = encryptedMessageEditText.text?.toString()?.trim() ?: ""
         val privateKeyText = privateKeyEditText.text?.toString()?.trim() ?: ""
-        val privateKeyPassword = privateKeyPasswordEditText.text?.toString() ?: ""
         
         if (encryptedMessage.isEmpty()) {
             Toast.makeText(this, "Wprowadź zaszyfrowaną wiadomość", Toast.LENGTH_SHORT).show()
@@ -113,6 +116,108 @@ class MainActivity : AppCompatActivity() {
             return
         }
         
+        // Sprawdź czy klucz wymaga hasła
+        executorService.execute {
+            try {
+                val requiresPassword = checkIfKeyRequiresPassword(privateKeyText)
+                runOnUiThread {
+                    if (requiresPassword) {
+                        // Pokaż dialog do wprowadzenia hasła
+                        showPasswordDialog(encryptedMessage, privateKeyText)
+                    } else {
+                        // Klucz nie wymaga hasła, odszyfruj bezpośrednio
+                        performDecryption(encryptedMessage, privateKeyText, "")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error checking if key requires password", e)
+                runOnUiThread {
+                    // W razie błędu sprawdzania, spróbuj bez hasła
+                    performDecryption(encryptedMessage, privateKeyText, "")
+                }
+            }
+        }
+    }
+    
+    private fun checkIfKeyRequiresPassword(privateKeyText: String): Boolean {
+        try {
+            val fingerprintCalculator = BcKeyFingerprintCalculator()
+            val privateKeyStream = ByteArrayInputStream(privateKeyText.toByteArray(Charsets.UTF_8))
+            val decoderStream = PGPUtil.getDecoderStream(privateKeyStream)
+            val secretKeyRingCollection = PGPSecretKeyRingCollection(decoderStream, fingerprintCalculator)
+            
+            var secretKey: PGPSecretKey? = null
+            val keyRings = secretKeyRingCollection.keyRings
+            while (keyRings.hasNext()) {
+                val keyRing = keyRings.next() as PGPSecretKeyRing
+                val keys = keyRing.secretKeys
+                while (keys.hasNext()) {
+                    val key = keys.next() as PGPSecretKey
+                    secretKey = key
+                    break
+                }
+                if (secretKey != null) break
+            }
+            
+            if (secretKey == null) {
+                return false
+            }
+            
+            // Spróbuj wyodrębnić klucz bez hasła
+            try {
+                secretKey.extractPrivateKey(
+                    BcPBESecretKeyDecryptorBuilder()
+                        .build(charArrayOf())
+                )
+                return false // Klucz nie wymaga hasła
+            } catch (e: Exception) {
+                // Jeśli nie udało się bez hasła, klucz wymaga hasła
+                return true
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error checking password requirement", e)
+            return false
+        }
+    }
+    
+    private fun showPasswordDialog(encryptedMessage: String, privateKeyText: String) {
+        val passwordInput = EditText(this).apply {
+            hint = getString(R.string.password_dialog_hint)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setPadding(50, 30, 50, 30)
+            setTextColor(getColor(android.R.color.white))
+            setHintTextColor(getColor(android.R.color.darker_gray))
+        }
+        
+        val dialog = AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog)
+            .setTitle(getString(R.string.password_dialog_title))
+            .setMessage(getString(R.string.password_dialog_message))
+            .setView(passwordInput)
+            .setPositiveButton("Odszyfruj") { _, _ ->
+                val password = passwordInput.text?.toString() ?: ""
+                performDecryption(encryptedMessage, privateKeyText, password)
+            }
+            .setNegativeButton("Anuluj") { dialog, _ ->
+                decryptButton.isEnabled = true
+                decryptButton.text = getString(R.string.decrypt_button)
+                dialog.dismiss()
+            }
+            .create()
+        
+        dialog.setOnShowListener {
+            // Ustaw kolory przycisków
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(getColor(android.R.color.white))
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setBackgroundColor(getColor(R.color.color_primary))
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(getColor(android.R.color.white))
+        }
+        
+        dialog.show()
+        
+        // Ustaw tło dialogu
+        dialog.window?.setBackgroundDrawableResource(R.color.color_surface)
+    }
+    
+    private fun performDecryption(encryptedMessage: String, privateKeyText: String, password: String) {
         // Wyłącz przycisk podczas odszyfrowywania
         decryptButton.isEnabled = false
         decryptButton.text = getString(R.string.decrypting)
@@ -120,8 +225,8 @@ class MainActivity : AppCompatActivity() {
         // Uruchom w tle używając ExecutorService
         executorService.execute {
             try {
-                Log.d("MainActivity", "Starting decryption... (password provided: ${privateKeyPassword.isNotEmpty()})")
-                val decrypted = decryptPGP(encryptedMessage, privateKeyText, privateKeyPassword)
+                Log.d("MainActivity", "Starting decryption... (password provided: ${password.isNotEmpty()})")
+                val decrypted = decryptPGP(encryptedMessage, privateKeyText, password)
                 Log.d("MainActivity", "Decryption successful, length: ${decrypted.length}")
                 
                 runOnUiThread {

@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#3DDC84</color>
+    <color name="ic_launcher_background">#000000</color>
+    
+    <!-- Czerwone, czarne i szare kolory -->
+    <color name="color_primary">#DC143C</color>
+    <color name="color_primary_dark">#8B0000</color>
+    <color name="color_accent">#FF4444</color>
+    <color name="color_background">#1A1A1A</color>
+    <color name="color_surface">#2D2D2D</color>
+    <color name="color_text_primary">#FFFFFF</color>
+    <color name="color_text_secondary">#CCCCCC</color>
+    <color name="color_divider">#444444</color>
+    <color name="color_error">#DC143C</color>
 </resources>
 
 
