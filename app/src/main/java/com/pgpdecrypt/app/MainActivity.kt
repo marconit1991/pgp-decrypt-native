@@ -339,14 +339,52 @@ class MainActivity : AppCompatActivity() {
                 throw Exception("Nie znaleziono zaszyfrowanych danych. Sprawdź format wiadomości PGP.")
             }
             
-            // Znajdź odpowiedni zaszyfrowany obiekt i jego KeyID
+            // Znajdź odpowiedni zaszyfrowany obiekt - spróbuj wszystkich dostępnych
+            // Wiadomość może być zaszyfrowana wieloma kluczami, musimy znaleźć pasujący
             var publicKeyEncryptedData: PGPPublicKeyEncryptedData? = null
+            var requiredKeyID: Long = 0
             val encryptedDataObjects = encryptedDataList.encryptedDataObjects
+            
+            // Najpierw zbierz wszystkie dostępne KeyID z kluczy prywatnych
+            val availableKeyIDs = mutableSetOf<Long>()
+            val keyRingsForIDs = secretKeyRingCollection.keyRings
+            while (keyRingsForIDs.hasNext()) {
+                val keyRing = keyRingsForIDs.next() as PGPSecretKeyRing
+                val keys = keyRing.secretKeys
+                while (keys.hasNext()) {
+                    val key = keys.next() as PGPSecretKey
+                    availableKeyIDs.add(key.keyID)
+                    Log.d("MainActivity", "Available key KeyID: ${key.keyID}")
+                }
+            }
+            
+            // Znajdź zaszyfrowany obiekt z KeyID który mamy w kluczach prywatnych
             while (encryptedDataObjects.hasNext()) {
                 val encryptedDataObj = encryptedDataObjects.next()
                 if (encryptedDataObj is PGPPublicKeyEncryptedData) {
-                    publicKeyEncryptedData = encryptedDataObj
-                    break
+                    val keyID = encryptedDataObj.keyID
+                    Log.d("MainActivity", "Checking encrypted data KeyID: $keyID")
+                    if (availableKeyIDs.contains(keyID)) {
+                        publicKeyEncryptedData = encryptedDataObj
+                        requiredKeyID = keyID
+                        Log.d("MainActivity", "Found matching encrypted data with KeyID: $keyID")
+                        break
+                    }
+                }
+            }
+            
+            // Jeśli nie znaleziono pasującego, użyj pierwszego dostępnego
+            if (publicKeyEncryptedData == null) {
+                Log.w("MainActivity", "No matching KeyID found in encrypted data, using first available")
+                val encryptedDataObjects2 = encryptedDataList.encryptedDataObjects
+                while (encryptedDataObjects2.hasNext()) {
+                    val encryptedDataObj = encryptedDataObjects2.next()
+                    if (encryptedDataObj is PGPPublicKeyEncryptedData) {
+                        publicKeyEncryptedData = encryptedDataObj
+                        requiredKeyID = encryptedDataObj.keyID
+                        Log.d("MainActivity", "Using first encrypted data with KeyID: $requiredKeyID")
+                        break
+                    }
                 }
             }
             
@@ -354,7 +392,6 @@ class MainActivity : AppCompatActivity() {
                 throw Exception("Nie znaleziono zaszyfrowanych danych kluczem publicznym")
             }
             
-            val requiredKeyID = publicKeyEncryptedData.keyID
             Log.d("MainActivity", "Required KeyID: $requiredKeyID")
             
             // Znajdź klucz prywatny pasujący do KeyID z wiadomości
