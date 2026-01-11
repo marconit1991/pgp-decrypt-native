@@ -17,6 +17,10 @@
     <string name="password_dialog_title">🔐 Hasło do klucza prywatnego</string>
     <string name="password_dialog_message">Ten klucz prywatny wymaga hasła do odszyfrowania.</string>
     <string name="password_dialog_hint">Wprowadź hasło</string>
+    <string name="password_dialog_positive">Odszyfruj</string>
+    <string name="password_dialog_negative">Anuluj</string>
+    <string name="token_label">Token:</string>
+    <string name="token_hint">Token pojawi się tutaj...</string>
 </resources>
 
 
