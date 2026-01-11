@@ -319,7 +319,7 @@ class MainActivity : AppCompatActivity() {
             dialog.setOnShowListener {
                 // Ustaw kolory przycisków
                 dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.color_button_text))
-                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.color_text_secondary))
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.color_button_negative))
             }
             
             dialog.show()
