@@ -346,28 +346,42 @@ class MainActivity : AppCompatActivity() {
             val pgpObjectFactory = PGPObjectFactory(encryptedDecoderStream, fingerprintCalculator)
             Log.d("MainActivity", "Encrypted message loaded")
             
-            // Pobierz listę zaszyfrowanych danych
+            // Pobierz listę zaszyfrowanych danych - obsługuj różne formaty
             var encryptedDataList: PGPEncryptedDataList? = null
-            var obj = pgpObjectFactory.nextObject()
+            var obj: Any? = pgpObjectFactory.nextObject()
             
-            when (obj) {
-                is PGPEncryptedDataList -> {
-                    encryptedDataList = obj
-                }
-                is PGPOnePassSignatureList -> {
-                    // Pomiń podpisy i pobierz zaszyfrowane dane
-                    obj = pgpObjectFactory.nextObject()
-                    if (obj is PGPEncryptedDataList) {
+            // Przeszukaj wszystkie obiekty aż znajdziemy PGPEncryptedDataList
+            while (obj != null) {
+                when (obj) {
+                    is PGPEncryptedDataList -> {
                         encryptedDataList = obj
+                        break
                     }
-                }
-                else -> {
-                    throw Exception("Nieprawidłowy format wiadomości PGP")
+                    is PGPOnePassSignatureList -> {
+                        // Pomiń podpisy i kontynuuj
+                        obj = pgpObjectFactory.nextObject()
+                        continue
+                    }
+                    is PGPCompressedData -> {
+                        // Jeśli jest skompresowane, spróbuj wyodrębnić z tego
+                        val compressedFactory = PGPObjectFactory(obj.dataStream, fingerprintCalculator)
+                        obj = compressedFactory.nextObject()
+                        continue
+                    }
+                    else -> {
+                        // Spróbuj następny obiekt
+                        obj = try {
+                            pgpObjectFactory.nextObject()
+                        } catch (e: Exception) {
+                            null
+                        }
+                        continue
+                    }
                 }
             }
             
             if (encryptedDataList == null) {
-                throw Exception("Nie znaleziono zaszyfrowanych danych")
+                throw Exception("Nie znaleziono zaszyfrowanych danych. Sprawdź format wiadomości PGP.")
             }
             
             // Znajdź odpowiedni zaszyfrowany obiekt
@@ -386,32 +400,56 @@ class MainActivity : AppCompatActivity() {
             }
             
             // Odszyfruj dane
-            Log.d("MainActivity", "Decrypting data...")
+            Log.d("MainActivity", "Decrypting data... KeyID: ${publicKeyEncryptedData.keyID}")
             val dataDecryptorFactory = BcPublicKeyDataDecryptorFactory(pgpPrivateKey)
-            val encryptedInputStream: InputStream = try {
-                publicKeyEncryptedData.getDataStream(dataDecryptorFactory)
+            
+            var encryptedInputStream: InputStream? = null
+            try {
+                encryptedInputStream = publicKeyEncryptedData.getDataStream(dataDecryptorFactory)
+                Log.d("MainActivity", "Data stream obtained, reading decrypted data...")
+                
+                val literalDataFactory = PGPObjectFactory(encryptedInputStream, fingerprintCalculator)
+                
+                // Pobierz odszyfrowane dane - obsługuj różne formaty
+                var decryptedObj: Any? = literalDataFactory.nextObject()
+                var decryptedData: ByteArray? = null
+                
+                while (decryptedObj != null && decryptedData == null) {
+                    when (decryptedObj) {
+                        is PGPLiteralData -> {
+                            decryptedData = readLiteralData(decryptedObj)
+                            break
+                        }
+                        is PGPCompressedData -> {
+                            val compressedData = decryptedObj
+                            val compressedFactory = PGPObjectFactory(compressedData.dataStream, fingerprintCalculator)
+                            decryptedObj = compressedFactory.nextObject()
+                            continue
+                        }
+                        else -> {
+                            // Spróbuj następny obiekt
+                            decryptedObj = try {
+                                literalDataFactory.nextObject()
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+                    }
+                }
+                
+                if (decryptedData == null) {
+                    throw Exception("Nie znaleziono danych do odszyfrowania w wiadomości PGP")
+                }
+                
+                return String(decryptedData, Charsets.UTF_8)
             } catch (e: Exception) {
-                Log.e("MainActivity", "Error getting data stream", e)
-                throw Exception("Błąd odszyfrowywania danych. Sprawdź czy klucz pasuje do wiadomości. ${e.message}")
-            }
-            val literalDataFactory = PGPObjectFactory(encryptedInputStream, fingerprintCalculator)
-            Log.d("MainActivity", "Data stream obtained")
-            
-            // Pobierz odszyfrowane dane
-            obj = literalDataFactory.nextObject()
-            
-            val decryptedData = when (obj) {
-                is PGPLiteralData -> {
-                    readLiteralData(obj)
-                }
-                is PGPCompressedData -> {
-                    val compressedData = obj
-                    val compressedFactory = PGPObjectFactory(compressedData.dataStream, fingerprintCalculator)
-                    val literalData = compressedFactory.nextObject() as PGPLiteralData
-                    readLiteralData(literalData)
-                }
-                else -> {
-                    throw Exception("Nieoczekiwany typ danych PGP: ${obj.javaClass.simpleName}")
+                Log.e("MainActivity", "Error decrypting data stream", e)
+                throw Exception("Błąd odszyfrowywania danych sesji. ${e.message}")
+            } finally {
+                try {
+                    encryptedInputStream?.close()
+                } catch (e: Exception) {
+                    Log.w("MainActivity", "Error closing stream", e)
                 }
             }
             
