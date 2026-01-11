@@ -21,6 +21,7 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.security.Security
+import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
     
@@ -30,6 +31,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var decryptButton: MaterialButton
     private lateinit var copyButton: MaterialButton
     private lateinit var loadKeyFromFileButton: MaterialButton
+    
+    private val executorService = Executors.newSingleThreadExecutor()
     
     private val filePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
@@ -111,57 +114,81 @@ class MainActivity : AppCompatActivity() {
         decryptButton.isEnabled = false
         decryptButton.text = getString(R.string.decrypting)
         
-        // Uruchom w tle
-        Thread {
+        // Uruchom w tle używając ExecutorService
+        executorService.execute {
             try {
                 Log.d("MainActivity", "Starting decryption...")
                 val decrypted = decryptPGP(encryptedMessage, privateKeyText)
-                Log.d("MainActivity", "Decryption successful")
+                Log.d("MainActivity", "Decryption successful, length: ${decrypted.length}")
                 
                 runOnUiThread {
                     try {
-                        decryptedResultEditText.setText(decrypted)
-                        copyButton.isEnabled = true
-                        decryptButton.isEnabled = true
-                        decryptButton.text = getString(R.string.decrypt_button)
-                        Toast.makeText(this, "✅ Odszyfrowano pomyślnie!", Toast.LENGTH_SHORT).show()
+                        if (!isFinishing && !isDestroyed) {
+                            decryptedResultEditText.setText(decrypted)
+                            copyButton.isEnabled = true
+                            decryptButton.isEnabled = true
+                            decryptButton.text = getString(R.string.decrypt_button)
+                            Toast.makeText(this, "✅ Odszyfrowano pomyślnie!", Toast.LENGTH_SHORT).show()
+                        }
                     } catch (e: Exception) {
                         Log.e("MainActivity", "Error updating UI", e)
-                        Toast.makeText(this, "Błąd aktualizacji UI: ${e.message}", Toast.LENGTH_LONG).show()
+                        e.printStackTrace()
+                        if (!isFinishing && !isDestroyed) {
+                            Toast.makeText(this, "Błąd aktualizacji UI: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.e("MainActivity", "Decryption error", e)
                 e.printStackTrace()
+                val errorMessage = e.message ?: "Nieznany błąd"
+                val errorDetails = e.stackTraceToString()
+                
                 runOnUiThread {
                     try {
-                        decryptedResultEditText.setText("❌ Błąd: ${e.message}\n\n${e.stackTraceToString()}")
-                        decryptButton.isEnabled = true
-                        decryptButton.text = getString(R.string.decrypt_button)
-                        Toast.makeText(this, "${getString(R.string.error_decrypt)}: ${e.message}", Toast.LENGTH_LONG).show()
+                        if (!isFinishing && !isDestroyed) {
+                            decryptedResultEditText.setText("❌ Błąd: $errorMessage\n\nSzczegóły:\n$errorDetails")
+                            decryptButton.isEnabled = true
+                            decryptButton.text = getString(R.string.decrypt_button)
+                            Toast.makeText(this, "${getString(R.string.error_decrypt)}: $errorMessage", Toast.LENGTH_LONG).show()
+                        }
                     } catch (uiError: Exception) {
                         Log.e("MainActivity", "Error showing error message", uiError)
+                        uiError.printStackTrace()
                     }
                 }
             }
-        }.start()
+        }
     }
     
     private fun decryptPGP(encryptedMessage: String, privateKeyText: String): String {
         try {
             Log.d("MainActivity", "Initializing BouncyCastle...")
-            val fingerprintCalculator = BcKeyFingerprintCalculator()
             
             // Upewnij się że BouncyCastle jest dostępny
-            if (Security.getProvider("BC") == null) {
-                Security.addProvider(BouncyCastleProvider())
+            try {
+                if (Security.getProvider("BC") == null) {
+                    Security.addProvider(BouncyCastleProvider())
+                }
+                Log.d("MainActivity", "BouncyCastle provider ready")
+            } catch (e: Exception) {
+                Log.w("MainActivity", "BouncyCastle provider issue", e)
+                // Kontynuuj - może już jest dodany
             }
+            
+            val fingerprintCalculator = BcKeyFingerprintCalculator()
+            
             // Wczytaj klucz prywatny
-            Log.d("MainActivity", "Loading private key...")
-            val privateKeyStream = ByteArrayInputStream(privateKeyText.toByteArray())
+            Log.d("MainActivity", "Loading private key... (length: ${privateKeyText.length})")
+            
+            if (!privateKeyText.contains("-----BEGIN PGP")) {
+                throw Exception("Klucz prywatny nie zawiera nagłówka PGP. Sprawdź format klucza.")
+            }
+            
+            val privateKeyStream = ByteArrayInputStream(privateKeyText.toByteArray(Charsets.UTF_8))
             val decoderStream = PGPUtil.getDecoderStream(privateKeyStream)
             val secretKeyRingCollection = PGPSecretKeyRingCollection(decoderStream, fingerprintCalculator)
-            Log.d("MainActivity", "Private key loaded")
+            Log.d("MainActivity", "Private key loaded successfully")
             
             // Znajdź pierwszy klucz prywatny
             var secretKey: PGPSecretKey? = null
@@ -182,15 +209,22 @@ class MainActivity : AppCompatActivity() {
             }
             
             // Wyodrębnij klucz prywatny (bez hasła)
-            val pgpPrivateKey = secretKey.extractPrivateKey(
-                JcePBESecretKeyDecryptorBuilder()
-                    .setProvider("BC")
-                    .build(charArrayOf())
-            )
+            Log.d("MainActivity", "Extracting private key...")
+            val pgpPrivateKey = try {
+                secretKey.extractPrivateKey(
+                    JcePBESecretKeyDecryptorBuilder()
+                        .setProvider("BC")
+                        .build(charArrayOf())
+                )
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error extracting private key", e)
+                throw Exception("Błąd wyodrębniania klucza prywatnego. Może klucz wymaga hasła? ${e.message}")
+            }
+            Log.d("MainActivity", "Private key extracted")
             
             // Wczytaj zaszyfrowaną wiadomość
-            Log.d("MainActivity", "Loading encrypted message...")
-            val encryptedStream = ByteArrayInputStream(encryptedMessage.toByteArray())
+            Log.d("MainActivity", "Loading encrypted message... (length: ${encryptedMessage.length})")
+            val encryptedStream = ByteArrayInputStream(encryptedMessage.toByteArray(Charsets.UTF_8))
             val encryptedDecoderStream = PGPUtil.getDecoderStream(encryptedStream)
             val pgpObjectFactory = PGPObjectFactory(encryptedDecoderStream, fingerprintCalculator)
             Log.d("MainActivity", "Encrypted message loaded")
@@ -235,9 +269,16 @@ class MainActivity : AppCompatActivity() {
             }
             
             // Odszyfruj dane
+            Log.d("MainActivity", "Decrypting data...")
             val dataDecryptorFactory = BcPublicKeyDataDecryptorFactory(pgpPrivateKey)
-            val encryptedInputStream: InputStream = publicKeyEncryptedData.getDataStream(dataDecryptorFactory)
+            val encryptedInputStream: InputStream = try {
+                publicKeyEncryptedData.getDataStream(dataDecryptorFactory)
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error getting data stream", e)
+                throw Exception("Błąd odszyfrowywania danych. Sprawdź czy klucz pasuje do wiadomości. ${e.message}")
+            }
             val literalDataFactory = PGPObjectFactory(encryptedInputStream, fingerprintCalculator)
+            Log.d("MainActivity", "Data stream obtained")
             
             // Pobierz odszyfrowane dane
             obj = literalDataFactory.nextObject()
@@ -257,10 +298,18 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             
-            return String(decryptedData, Charsets.UTF_8)
+            val result = String(decryptedData, Charsets.UTF_8)
+            Log.d("MainActivity", "Decryption complete, result length: ${result.length}")
+            return result
             
         } catch (e: Exception) {
+            Log.e("MainActivity", "Decryption failed", e)
+            e.printStackTrace()
             throw Exception("Błąd odszyfrowywania: ${e.message}", e)
+        } catch (e: Throwable) {
+            Log.e("MainActivity", "Decryption failed with Throwable", e)
+            e.printStackTrace()
+            throw Exception("Krytyczny błąd odszyfrowywania: ${e.message}", e)
         }
     }
     
@@ -328,6 +377,15 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Log.e("MainActivity", "Error reading file", e)
             Toast.makeText(this, "${getString(R.string.error_reading_file)}: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            executorService.shutdown()
+        } catch (e: Exception) {
+            Log.w("MainActivity", "Error shutting down executor", e)
         }
     }
 }
