@@ -65,11 +65,11 @@
             <!-- To jest to, czego potrzebujesz! Gdy zaznaczasz tekst PGP, pojawi się opcja "🔓 Odszyfruj" -->
             <!-- Podobnie jak "Zadzwoń" przy numerze telefonu, "🔓 Odszyfruj" pojawi się przy zaznaczonym tekście PGP -->
             <!-- android:priority="1000" - maksymalny priorytet, aby opcja pojawiała się jako pierwsza (może nie działać na wszystkich urządzeniach) -->
-            <!-- android:icon - ikona kłódki (może nie działać na wszystkich urządzeniach, ale warto spróbować) -->
+            <!-- android:icon - używamy ikony aplikacji (jak Dialer i WhatsApp używają swoich ikon) -->
+            <!-- Spróbujmy użyć ikony aplikacji - Android powinien użyć ikony z android:icon w <application> -->
             <intent-filter 
                 android:label="@string/process_text_label"
-                android:priority="1000"
-                android:icon="@drawable/ic_lock_pgp">
+                android:priority="1000">
                 <action android:name="android.intent.action.PROCESS_TEXT" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />

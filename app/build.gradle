@@ -11,7 +11,9 @@ android {
         applicationId "com.pgpdecrypt.app"
         minSdk 24
         targetSdk 33
-        versionCode 1
+        // Automatyczne zwiększanie versionCode - używa timestamp, więc każda kompilacja ma wyższy numer
+        // To pozwala na aktualizację bez konfliktów z istniejącym pakietem
+        versionCode (int)(System.currentTimeMillis() / 1000)
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
