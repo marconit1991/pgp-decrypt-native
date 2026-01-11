@@ -27,6 +27,7 @@ class MainActivity : AppCompatActivity() {
     
     private lateinit var encryptedMessageEditText: TextInputEditText
     private lateinit var privateKeyEditText: TextInputEditText
+    private lateinit var privateKeyPasswordEditText: TextInputEditText
     private lateinit var decryptedResultEditText: TextInputEditText
     private lateinit var decryptButton: MaterialButton
     private lateinit var copyButton: MaterialButton
@@ -65,6 +66,7 @@ class MainActivity : AppCompatActivity() {
             // Inicjalizuj widoki
             encryptedMessageEditText = findViewById(R.id.encryptedMessageEditText)
             privateKeyEditText = findViewById(R.id.privateKeyEditText)
+            privateKeyPasswordEditText = findViewById(R.id.privateKeyPasswordEditText)
             decryptedResultEditText = findViewById(R.id.decryptedResultEditText)
             decryptButton = findViewById(R.id.decryptButton)
             copyButton = findViewById(R.id.copyButton)
@@ -94,6 +96,7 @@ class MainActivity : AppCompatActivity() {
     private fun decryptPGPMessage() {
         val encryptedMessage = encryptedMessageEditText.text?.toString()?.trim() ?: ""
         val privateKeyText = privateKeyEditText.text?.toString()?.trim() ?: ""
+        val privateKeyPassword = privateKeyPasswordEditText.text?.toString() ?: ""
         
         if (encryptedMessage.isEmpty()) {
             Toast.makeText(this, "Wprowadź zaszyfrowaną wiadomość", Toast.LENGTH_SHORT).show()
@@ -117,8 +120,8 @@ class MainActivity : AppCompatActivity() {
         // Uruchom w tle używając ExecutorService
         executorService.execute {
             try {
-                Log.d("MainActivity", "Starting decryption...")
-                val decrypted = decryptPGP(encryptedMessage, privateKeyText)
+                Log.d("MainActivity", "Starting decryption... (password provided: ${privateKeyPassword.isNotEmpty()})")
+                val decrypted = decryptPGP(encryptedMessage, privateKeyText, privateKeyPassword)
                 Log.d("MainActivity", "Decryption successful, length: ${decrypted.length}")
                 
                 runOnUiThread {
@@ -161,7 +164,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    private fun decryptPGP(encryptedMessage: String, privateKeyText: String): String {
+    private fun decryptPGP(encryptedMessage: String, privateKeyText: String, password: String = ""): String {
         try {
             Log.d("MainActivity", "Initializing BouncyCastle...")
             
@@ -208,20 +211,24 @@ class MainActivity : AppCompatActivity() {
                 throw Exception("Nie znaleziono klucza prywatnego. Upewnij się, że klucz zawiera nagłówki -----BEGIN PGP PRIVATE KEY BLOCK-----")
             }
             
-            // Wyodrębnij klucz prywatny (bez hasła)
+            // Wyodrębnij klucz prywatny (z hasłem lub bez)
             // Używamy BcPBESecretKeyDecryptorBuilder zamiast JcePBESecretKeyDecryptorBuilder
             // bo JCE może mieć problemy z SHA-1 na Androidzie
-            Log.d("MainActivity", "Extracting private key...")
+            Log.d("MainActivity", "Extracting private key... (password provided: ${password.isNotEmpty()})")
             val pgpPrivateKey = try {
                 secretKey.extractPrivateKey(
                     BcPBESecretKeyDecryptorBuilder()
-                        .build(charArrayOf())
+                        .build(password.toCharArray())
                 )
             } catch (e: Exception) {
                 Log.e("MainActivity", "Error extracting private key", e)
-                throw Exception("Błąd wyodrębniania klucza prywatnego. Może klucz wymaga hasła? ${e.message}")
+                if (password.isEmpty()) {
+                    throw Exception("Błąd wyodrębniania klucza prywatnego. Klucz może wymagać hasła. ${e.message}")
+                } else {
+                    throw Exception("Błąd wyodrębniania klucza prywatnego. Sprawdź czy hasło jest poprawne. ${e.message}")
+                }
             }
-            Log.d("MainActivity", "Private key extracted")
+            Log.d("MainActivity", "Private key extracted successfully")
             
             // Wczytaj zaszyfrowaną wiadomość
             Log.d("MainActivity", "Loading encrypted message... (length: ${encryptedMessage.length})")

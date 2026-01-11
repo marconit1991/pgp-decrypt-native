@@ -14,6 +14,8 @@
     <string name="load_from_file">📁 Wczytaj z pliku</string>
     <string name="file_loaded">Plik wczytany pomyślnie!</string>
     <string name="error_reading_file">Błąd odczytu pliku</string>
+    <string name="private_key_password_hint">Hasło do klucza prywatnego (opcjonalne)</string>
+    <string name="password_optional">Hasło (opcjonalne)</string>
 </resources>
 
 
