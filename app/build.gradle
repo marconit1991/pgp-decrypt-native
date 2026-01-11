@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace 'com.pgpdecrypt.app'
+    namespace 'a.pgpdecrypt'
     compileSdk 33
 
     defaultConfig {
-        applicationId "com.pgpdecrypt.app"
+        applicationId "a.pgpdecrypt"
         minSdk 24
         targetSdk 33
         // Automatyczne zwiększanie versionCode - używa run_number z GitHub Actions lub timestamp

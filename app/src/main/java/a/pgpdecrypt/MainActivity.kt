@@ -1,4 +1,4 @@
-package com.pgpdecrypt.app
+package a.pgpdecrypt
 
 import android.app.AlertDialog
 import android.content.ClipData
