@@ -116,6 +116,30 @@ class MainActivity : AppCompatActivity() {
         
         Log.d("MainActivity", "handleIncomingIntent: action=$action, type=$type")
         
+        // Obsługa ACTION_PROCESS_TEXT - pojawia się w menu kontekstowym przy zaznaczonym tekście
+        if (Intent.ACTION_PROCESS_TEXT == action) {
+            val selectedText = intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString()
+            if (!selectedText.isNullOrBlank()) {
+                Log.d("MainActivity", "Received text via ACTION_PROCESS_TEXT, length: ${selectedText.length}")
+                
+                // Sprawdź czy to wygląda na PGP
+                if (selectedText.contains("-----BEGIN PGP MESSAGE-----") || 
+                    selectedText.contains("BEGIN PGP MESSAGE")) {
+                    encryptedMessageEditText.setText(selectedText.trim())
+                    Toast.makeText(this, "✅ Wklejono wiadomość PGP", Toast.LENGTH_SHORT).show()
+                } else if (selectedText.contains("-----BEGIN PGP PRIVATE KEY BLOCK-----") ||
+                           selectedText.contains("BEGIN PGP PRIVATE KEY")) {
+                    privateKeyEditText.setText(selectedText.trim())
+                    Toast.makeText(this, "✅ Wklejono klucz prywatny", Toast.LENGTH_SHORT).show()
+                } else {
+                    // Wklej do pola wiadomości - użytkownik wybrał naszą aplikację
+                    encryptedMessageEditText.setText(selectedText.trim())
+                    Toast.makeText(this, "✅ Wklejono zaznaczony tekst", Toast.LENGTH_SHORT).show()
+                }
+                return
+            }
+        }
+        
         // Sprawdź czy to ACTION_SEND lub ACTION_VIEW
         if (Intent.ACTION_SEND == action || Intent.ACTION_VIEW == action) {
             // Akceptuj text/plain, brak typu, lub */* (niektóre aplikacje nie podają typu)
