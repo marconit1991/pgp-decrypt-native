@@ -48,6 +48,7 @@ jobs:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
         ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
         PATH: /usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:${{ env.PATH }}
+        GITHUB_RUN_NUMBER: ${{ github.run_number }}
         
     - name: Upload APK
       uses: actions/upload-artifact@v4

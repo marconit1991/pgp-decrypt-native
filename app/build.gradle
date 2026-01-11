@@ -11,9 +11,14 @@ android {
         applicationId "com.pgpdecrypt.app"
         minSdk 24
         targetSdk 33
-        // Automatyczne zwiększanie versionCode - używa timestamp, więc każda kompilacja ma wyższy numer
+        // Automatyczne zwiększanie versionCode - używa run_number z GitHub Actions lub timestamp
         // To pozwala na aktualizację bez konfliktów z istniejącym pakietem
-        versionCode (int)(System.currentTimeMillis() / 1000)
+        def buildNumber = System.getenv('GITHUB_RUN_NUMBER')
+        if (buildNumber == null || buildNumber.isEmpty()) {
+            // Jeśli nie ma GITHUB_RUN_NUMBER, użyj timestamp (sekundy od 1970)
+            buildNumber = String.valueOf((long)(System.currentTimeMillis() / 1000))
+        }
+        versionCode Integer.parseInt(buildNumber)
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
