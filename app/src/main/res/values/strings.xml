@@ -11,5 +11,9 @@
     <string name="error_decrypt">Błąd odszyfrowywania</string>
     <string name="error_invalid_pgp">Nieprawidłowa wiadomość PGP</string>
     <string name="error_invalid_key">Nieprawidłowy klucz prywatny</string>
+    <string name="load_from_file">📁 Wczytaj z pliku</string>
+    <string name="file_loaded">Plik wczytany pomyślnie!</string>
+    <string name="error_reading_file">Błąd odczytu pliku</string>
 </resources>
+
 

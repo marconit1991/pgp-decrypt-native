@@ -83,3 +83,4 @@ pgp_decrypt_native/
 
 Projekt jest dostępny do użytku osobistego.
 
+

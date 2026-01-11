@@ -3,9 +3,12 @@ package com.pgpdecrypt.app
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
@@ -26,6 +29,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var decryptedResultEditText: TextInputEditText
     private lateinit var decryptButton: MaterialButton
     private lateinit var copyButton: MaterialButton
+    private lateinit var loadKeyFromFileButton: MaterialButton
+    
+    private val filePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let {
+            loadKeyFromFile(it)
+        }
+    }
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,6 +65,7 @@ class MainActivity : AppCompatActivity() {
             decryptedResultEditText = findViewById(R.id.decryptedResultEditText)
             decryptButton = findViewById(R.id.decryptButton)
             copyButton = findViewById(R.id.copyButton)
+            loadKeyFromFileButton = findViewById(R.id.loadKeyFromFileButton)
             
             // Przycisk odszyfrowywania
             decryptButton.setOnClickListener {
@@ -64,6 +75,11 @@ class MainActivity : AppCompatActivity() {
             // Przycisk kopiowania
             copyButton.setOnClickListener {
                 copyToClipboard()
+            }
+            
+            // Przycisk wczytania klucza z pliku
+            loadKeyFromFileButton.setOnClickListener {
+                openFilePicker()
             }
         } catch (e: Exception) {
             Log.e("MainActivity", "Error initializing views", e)
@@ -276,5 +292,42 @@ class MainActivity : AppCompatActivity() {
         clipboard.setPrimaryClip(clip)
         
         Toast.makeText(this, getString(R.string.copy_success), Toast.LENGTH_SHORT).show()
+    }
+    
+    private fun openFilePicker() {
+        try {
+            val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                type = "*/*"
+                addCategory(Intent.CATEGORY_OPENABLE)
+                putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("text/plain", "text/*", "*/*"))
+            }
+            filePickerLauncher.launch("*/*")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error opening file picker", e)
+            Toast.makeText(this, "Błąd otwierania wyboru pliku: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+    
+    private fun loadKeyFromFile(uri: Uri) {
+        try {
+            contentResolver.openInputStream(uri)?.use { inputStream ->
+                val content = inputStream.bufferedReader().use { it.readText() }
+                
+                // Sprawdź czy to wygląda na klucz PGP
+                if (content.contains("-----BEGIN PGP") || content.contains("PRIVATE KEY")) {
+                    privateKeyEditText.setText(content.trim())
+                    Toast.makeText(this, getString(R.string.file_loaded), Toast.LENGTH_SHORT).show()
+                } else {
+                    // Spróbuj wczytać mimo wszystko - może być w innym formacie
+                    privateKeyEditText.setText(content.trim())
+                    Toast.makeText(this, "Plik wczytany (sprawdź czy to klucz PGP)", Toast.LENGTH_SHORT).show()
+                }
+            } ?: run {
+                Toast.makeText(this, "Nie można odczytać pliku", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error reading file", e)
+            Toast.makeText(this, "${getString(R.string.error_reading_file)}: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 }
