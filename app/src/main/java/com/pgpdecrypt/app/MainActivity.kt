@@ -453,10 +453,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             
-            val result = String(decryptedData, Charsets.UTF_8)
-            Log.d("MainActivity", "Decryption complete, result length: ${result.length}")
-            return result
-            
         } catch (e: Exception) {
             Log.e("MainActivity", "Decryption failed", e)
             e.printStackTrace()
