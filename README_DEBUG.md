@@ -124,3 +124,4 @@ Ten skrypt jest przydatny do:
 - Analizy struktury wiadomości PGP
 - Testowania przed wdrożeniem w aplikacji Android
 
+
