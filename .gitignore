@@ -103,3 +103,9 @@ lint/generated/
 lint/outputs/
 lint/tmp/
 # lint/reports/
+
+# Debug files and JARs
+*.jar
+Main.kt
+build_debug.gradle
+run_debug*.sh
