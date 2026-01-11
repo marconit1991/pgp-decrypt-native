@@ -15,8 +15,8 @@ import com.google.android.material.textfield.TextInputEditText
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.openpgp.*
 import org.bouncycastle.openpgp.operator.bc.BcKeyFingerprintCalculator
+import org.bouncycastle.openpgp.operator.bc.BcPBESecretKeyDecryptorBuilder
 import org.bouncycastle.openpgp.operator.bc.BcPublicKeyDataDecryptorFactory
-import org.bouncycastle.openpgp.operator.jcajce.JcePBESecretKeyDecryptorBuilder
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -209,11 +209,12 @@ class MainActivity : AppCompatActivity() {
             }
             
             // Wyodrębnij klucz prywatny (bez hasła)
+            // Używamy BcPBESecretKeyDecryptorBuilder zamiast JcePBESecretKeyDecryptorBuilder
+            // bo JCE może mieć problemy z SHA-1 na Androidzie
             Log.d("MainActivity", "Extracting private key...")
             val pgpPrivateKey = try {
                 secretKey.extractPrivateKey(
-                    JcePBESecretKeyDecryptorBuilder()
-                        .setProvider("BC")
+                    BcPBESecretKeyDecryptorBuilder()
                         .build(charArrayOf())
                 )
             } catch (e: Exception) {
