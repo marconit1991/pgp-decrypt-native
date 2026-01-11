@@ -339,13 +339,7 @@ class MainActivity : AppCompatActivity() {
                 throw Exception("Nie znaleziono zaszyfrowanych danych. Sprawdź format wiadomości PGP.")
             }
             
-            // Znajdź odpowiedni zaszyfrowany obiekt - spróbuj wszystkich dostępnych
-            // Wiadomość może być zaszyfrowana wieloma kluczami, musimy znaleźć pasujący
-            var publicKeyEncryptedData: PGPPublicKeyEncryptedData? = null
-            var requiredKeyID: Long = 0
-            val encryptedDataObjects = encryptedDataList.encryptedDataObjects
-            
-            // Najpierw zbierz wszystkie dostępne KeyID z kluczy prywatnych
+            // Zbierz wszystkie dostępne KeyID z kluczy prywatnych
             val availableKeyIDs = mutableSetOf<Long>()
             val keyRingsForIDs = secretKeyRingCollection.keyRings
             while (keyRingsForIDs.hasNext()) {
@@ -354,69 +348,60 @@ class MainActivity : AppCompatActivity() {
                 while (keys.hasNext()) {
                     val key = keys.next() as PGPSecretKey
                     availableKeyIDs.add(key.keyID)
-                    Log.d("MainActivity", "Available key KeyID: ${key.keyID}")
+                    Log.d("MainActivity", "Available key KeyID: ${key.keyID.toString(16).uppercase()}")
                 }
             }
             
-            // Znajdź zaszyfrowany obiekt z KeyID który mamy w kluczach prywatnych
+            // Zbierz wszystkie zaszyfrowane obiekty
+            val allEncryptedData = mutableListOf<PGPPublicKeyEncryptedData>()
+            val encryptedDataObjects = encryptedDataList.encryptedDataObjects
             while (encryptedDataObjects.hasNext()) {
                 val encryptedDataObj = encryptedDataObjects.next()
                 if (encryptedDataObj is PGPPublicKeyEncryptedData) {
-                    val keyID = encryptedDataObj.keyID
-                    Log.d("MainActivity", "Checking encrypted data KeyID: $keyID")
-                    if (availableKeyIDs.contains(keyID)) {
-                        publicKeyEncryptedData = encryptedDataObj
-                        requiredKeyID = keyID
-                        Log.d("MainActivity", "Found matching encrypted data with KeyID: $keyID")
-                        break
+                    allEncryptedData.add(encryptedDataObj)
+                    Log.d("MainActivity", "Encrypted data KeyID: ${encryptedDataObj.keyID.toString(16).uppercase()}")
+                }
+            }
+            
+            if (allEncryptedData.isEmpty()) {
+                throw Exception("Nie znaleziono zaszyfrowanych danych kluczem publicznym")
+            }
+            
+            // Znajdź pasujący klucz i zaszyfrowane dane
+            var publicKeyEncryptedData: PGPPublicKeyEncryptedData? = null
+            var secretKey: PGPSecretKey? = null
+            var requiredKeyID: Long = 0
+            
+            // Próbuj każde zaszyfrowane dane z każdym dostępnym kluczem
+            for (encryptedData in allEncryptedData) {
+                val encryptedKeyID = encryptedData.keyID
+                Log.d("MainActivity", "Trying to match encrypted KeyID: ${encryptedKeyID.toString(16).uppercase()}")
+                
+                if (availableKeyIDs.contains(encryptedKeyID)) {
+                    // Znajdź pasujący klucz prywatny
+                    val keyRings = secretKeyRingCollection.keyRings
+                    while (keyRings.hasNext()) {
+                        val keyRing = keyRings.next() as PGPSecretKeyRing
+                        val keys = keyRing.secretKeys
+                        while (keys.hasNext()) {
+                            val key = keys.next() as PGPSecretKey
+                            if (key.keyID == encryptedKeyID) {
+                                secretKey = key
+                                publicKeyEncryptedData = encryptedData
+                                requiredKeyID = encryptedKeyID
+                                Log.d("MainActivity", "✅ Found matching key and encrypted data! KeyID: ${requiredKeyID.toString(16).uppercase()}")
+                                break
+                            }
+                        }
+                        if (secretKey != null) break
                     }
+                    if (secretKey != null) break
                 }
             }
             
             // Jeśli nie znaleziono pasującego, użyj pierwszego dostępnego
-            if (publicKeyEncryptedData == null) {
-                Log.w("MainActivity", "No matching KeyID found in encrypted data, using first available")
-                val encryptedDataObjects2 = encryptedDataList.encryptedDataObjects
-                while (encryptedDataObjects2.hasNext()) {
-                    val encryptedDataObj = encryptedDataObjects2.next()
-                    if (encryptedDataObj is PGPPublicKeyEncryptedData) {
-                        publicKeyEncryptedData = encryptedDataObj
-                        requiredKeyID = encryptedDataObj.keyID
-                        Log.d("MainActivity", "Using first encrypted data with KeyID: $requiredKeyID")
-                        break
-                    }
-                }
-            }
-            
-            if (publicKeyEncryptedData == null) {
-                throw Exception("Nie znaleziono zaszyfrowanych danych kluczem publicznym")
-            }
-            
-            Log.d("MainActivity", "Required KeyID: $requiredKeyID")
-            
-            // Znajdź klucz prywatny pasujący do KeyID z wiadomości
-            var secretKey: PGPSecretKey? = null
-            val keyRings = secretKeyRingCollection.keyRings
-            while (keyRings.hasNext()) {
-                val keyRing = keyRings.next() as PGPSecretKeyRing
-                val keys = keyRing.secretKeys
-                while (keys.hasNext()) {
-                    val key = keys.next() as PGPSecretKey
-                    val keyID = key.keyID
-                    Log.d("MainActivity", "Checking key with KeyID: $keyID")
-                    if (keyID == requiredKeyID) {
-                        secretKey = key
-                        Log.d("MainActivity", "Found matching key!")
-                        break
-                    }
-                }
-                if (secretKey != null) break
-            }
-            
-            // Jeśli nie znaleziono pasującego KeyID, użyj pierwszego dostępnego klucza
-            // Musimy ponownie przejść przez kolekcję, bo iterator mógł być już wyczerpany
-            if (secretKey == null) {
-                Log.w("MainActivity", "No matching KeyID found, using first available key")
+            if (secretKey == null || publicKeyEncryptedData == null) {
+                Log.w("MainActivity", "No exact match found, using first available key and encrypted data")
                 val keyRings2 = secretKeyRingCollection.keyRings
                 while (keyRings2.hasNext()) {
                     val keyRing = keyRings2.next() as PGPSecretKeyRing
@@ -424,24 +409,9 @@ class MainActivity : AppCompatActivity() {
                     while (keys.hasNext()) {
                         val key = keys.next() as PGPSecretKey
                         secretKey = key
-                        Log.d("MainActivity", "Using first available key with KeyID: ${key.keyID}")
-                        break
-                    }
-                    if (secretKey != null) break
-                }
-            }
-            
-            // Jeśli nadal nie znaleziono, spróbuj jeszcze raz od początku
-            if (secretKey == null) {
-                Log.w("MainActivity", "Retrying key search from beginning")
-                val keyRings3 = secretKeyRingCollection.keyRings
-                while (keyRings3.hasNext()) {
-                    val keyRing = keyRings3.next() as PGPSecretKeyRing
-                    val keys = keyRing.secretKeys
-                    while (keys.hasNext()) {
-                        val key = keys.next() as PGPSecretKey
-                        secretKey = key
-                        Log.d("MainActivity", "Found key with KeyID: ${key.keyID} (will try to decrypt anyway)")
+                        requiredKeyID = key.keyID
+                        publicKeyEncryptedData = allEncryptedData.firstOrNull()
+                        Log.d("MainActivity", "Using first available key KeyID: ${requiredKeyID.toString(16).uppercase()}")
                         break
                     }
                     if (secretKey != null) break
@@ -451,6 +421,12 @@ class MainActivity : AppCompatActivity() {
             if (secretKey == null) {
                 throw Exception("Nie znaleziono klucza prywatnego. Upewnij się, że klucz zawiera nagłówki -----BEGIN PGP PRIVATE KEY BLOCK-----")
             }
+            
+            if (publicKeyEncryptedData == null) {
+                throw Exception("Nie znaleziono zaszyfrowanych danych kluczem publicznym")
+            }
+            
+            Log.d("MainActivity", "Using KeyID: ${requiredKeyID.toString(16).uppercase()} for decryption")
             
             // Wyodrębnij klucz prywatny (z hasłem lub bez)
             Log.d("MainActivity", "Extracting private key... (password provided: ${password.isNotEmpty()})")
