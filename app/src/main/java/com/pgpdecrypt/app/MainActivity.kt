@@ -21,6 +21,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.openpgp.*
 import org.bouncycastle.openpgp.operator.bc.BcKeyFingerprintCalculator
 import org.bouncycastle.openpgp.operator.bc.BcPBESecretKeyDecryptorBuilder
+import org.bouncycastle.openpgp.operator.bc.BcPGPDigestCalculatorProvider
 import org.bouncycastle.openpgp.operator.bc.BcPublicKeyDataDecryptorFactory
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -166,8 +167,9 @@ class MainActivity : AppCompatActivity() {
             
             // Spróbuj wyodrębnić klucz bez hasła
             try {
+                val digestCalculatorProvider = BcPGPDigestCalculatorProvider()
                 secretKey.extractPrivateKey(
-                    BcPBESecretKeyDecryptorBuilder()
+                    BcPBESecretKeyDecryptorBuilder(digestCalculatorProvider)
                         .build(charArrayOf())
                 )
                 return false // Klucz nie wymaga hasła
@@ -322,8 +324,9 @@ class MainActivity : AppCompatActivity() {
             // bo JCE może mieć problemy z SHA-1 na Androidzie
             Log.d("MainActivity", "Extracting private key... (password provided: ${password.isNotEmpty()})")
             val pgpPrivateKey = try {
+                val digestCalculatorProvider = BcPGPDigestCalculatorProvider()
                 secretKey.extractPrivateKey(
-                    BcPBESecretKeyDecryptorBuilder()
+                    BcPBESecretKeyDecryptorBuilder(digestCalculatorProvider)
                         .build(password.toCharArray())
                 )
             } catch (e: Exception) {
