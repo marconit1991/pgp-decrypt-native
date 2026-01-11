@@ -69,6 +69,7 @@
             <!-- Spróbujmy użyć ikony aplikacji - Android powinien użyć ikony z android:icon w <application> -->
             <intent-filter 
                 android:label="@string/process_text_label"
+                android:icon="@drawable/ic_lock_pgp"
                 android:priority="1000">
                 <action android:name="android.intent.action.PROCESS_TEXT" />
                 <category android:name="android.intent.category.DEFAULT" />

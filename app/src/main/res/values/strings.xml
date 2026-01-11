@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">A Odszyfruj PGP</string>
+    <string name="app_name">Odszyfruj PGP</string>
     <string name="encrypted_message_hint">Wklej zaszyfrowaną wiadomość PGP tutaj...</string>
     <string name="private_key_hint">Wklej swój klucz prywatny PGP tutaj...</string>
     <string name="decrypt_button">🔓 Odszyfruj</string>
@@ -21,7 +21,7 @@
     <string name="password_dialog_negative">Anuluj</string>
     <string name="token_label">Token:</string>
     <string name="token_hint">Token pojawi się tutaj...</string>
-    <string name="process_text_label">Odszyfruj PGP</string>
+    <string name="process_text_label">PGP</string>
 </resources>
 
 
