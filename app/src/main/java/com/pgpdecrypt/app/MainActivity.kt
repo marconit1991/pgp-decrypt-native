@@ -14,6 +14,7 @@ import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import org.bouncycastle.jce.provider.BouncyCastleProvider
@@ -185,8 +186,8 @@ class MainActivity : AppCompatActivity() {
             hint = getString(R.string.password_dialog_hint)
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
             setPadding(50, 30, 50, 30)
-            setTextColor(getColor(android.R.color.white))
-            setHintTextColor(getColor(android.R.color.darker_gray))
+            setTextColor(ContextCompat.getColor(this@MainActivity, android.R.color.white))
+            setHintTextColor(ContextCompat.getColor(this@MainActivity, android.R.color.darker_gray))
         }
         
         val dialog = AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog)
@@ -206,9 +207,9 @@ class MainActivity : AppCompatActivity() {
         
         dialog.setOnShowListener {
             // Ustaw kolory przycisków
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(getColor(android.R.color.white))
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setBackgroundColor(getColor(R.color.color_primary))
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(getColor(android.R.color.white))
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(ContextCompat.getColor(this@MainActivity, android.R.color.white))
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.color_primary))
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(ContextCompat.getColor(this@MainActivity, android.R.color.white))
         }
         
         dialog.show()
