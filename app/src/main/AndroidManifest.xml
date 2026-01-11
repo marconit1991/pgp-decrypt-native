@@ -62,13 +62,14 @@
             </intent-filter>
             
             <!-- ACTION_PROCESS_TEXT - pojawia się w menu kontekstowym gdy zaznaczasz tekst -->
-            <!-- To jest to, czego potrzebujesz! Gdy zaznaczasz tekst PGP, pojawi się opcja "Odszyfruj PGP" -->
-            <!-- Podobnie jak "Zadzwoń" przy numerze telefonu, "Odszyfruj PGP" pojawi się przy zaznaczonym tekście PGP -->
+            <!-- To jest to, czego potrzebujesz! Gdy zaznaczasz tekst PGP, pojawi się opcja "🔓 Odszyfruj" -->
+            <!-- Podobnie jak "Zadzwoń" przy numerze telefonu, "🔓 Odszyfruj" pojawi się przy zaznaczonym tekście PGP -->
             <!-- android:priority="1000" - maksymalny priorytet, aby opcja pojawiała się jako pierwsza (może nie działać na wszystkich urządzeniach) -->
-            <!-- Ikona kłódki będzie używana z ikony aplikacji (android:icon w <application>) -->
+            <!-- android:icon - ikona kłódki (może nie działać na wszystkich urządzeniach, ale warto spróbować) -->
             <intent-filter 
                 android:label="@string/process_text_label"
-                android:priority="1000">
+                android:priority="1000"
+                android:icon="@drawable/ic_lock_pgp">
                 <action android:name="android.intent.action.PROCESS_TEXT" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />

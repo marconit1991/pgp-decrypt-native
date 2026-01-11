@@ -21,7 +21,7 @@
     <string name="password_dialog_negative">Anuluj</string>
     <string name="token_label">Token:</string>
     <string name="token_hint">Token pojawi się tutaj...</string>
-    <string name="process_text_label">Odszyfruj PGP</string>
+    <string name="process_text_label">🔓 Odszyfruj</string>
 </resources>
 
 
