@@ -92,10 +92,67 @@ class MainActivity : AppCompatActivity() {
             loadKeyFromFileButton.setOnClickListener {
                 openFilePicker()
             }
+            
+            // Obsługa Intent - sprawdź czy aplikacja została uruchomiona z zewnątrz z wiadomością PGP
+            handleIncomingIntent(intent)
         } catch (e: Exception) {
             Log.e("MainActivity", "Error initializing views", e)
             Toast.makeText(this, "Błąd inicjalizacji: ${e.message}", Toast.LENGTH_LONG).show()
             finish()
+        }
+    }
+    
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIncomingIntent(intent)
+    }
+    
+    private fun handleIncomingIntent(intent: Intent?) {
+        if (intent == null) return
+        
+        val action = intent.action
+        val type = intent.type
+        
+        // Sprawdź czy to ACTION_SEND lub ACTION_VIEW z text/plain
+        if ((Intent.ACTION_SEND == action || Intent.ACTION_VIEW == action) && 
+            type != null && type.startsWith("text/plain")) {
+            
+            val sharedText = when {
+                intent.getStringExtra(Intent.EXTRA_TEXT) != null -> {
+                    intent.getStringExtra(Intent.EXTRA_TEXT)
+                }
+                intent.data != null -> {
+                    // Spróbuj odczytać z URI
+                    try {
+                        contentResolver.openInputStream(intent.data!!)?.bufferedReader()?.use { it.readText() }
+                    } catch (e: Exception) {
+                        Log.w("MainActivity", "Error reading from URI", e)
+                        null
+                    }
+                }
+                else -> null
+            }
+            
+            if (!sharedText.isNullOrBlank()) {
+                // Sprawdź czy to wygląda na wiadomość PGP
+                if (sharedText.contains("-----BEGIN PGP MESSAGE-----") || 
+                    sharedText.contains("-----BEGIN PGP PRIVATE KEY BLOCK-----")) {
+                    
+                    Log.d("MainActivity", "Received PGP content via Intent, length: ${sharedText.length}")
+                    
+                    // Jeśli to wiadomość PGP, wklej do pola
+                    if (sharedText.contains("-----BEGIN PGP MESSAGE-----")) {
+                        encryptedMessageEditText.setText(sharedText.trim())
+                        Toast.makeText(this, "✅ Wklejono wiadomość PGP", Toast.LENGTH_SHORT).show()
+                    }
+                    // Jeśli to klucz prywatny, wklej do pola klucza
+                    else if (sharedText.contains("-----BEGIN PGP PRIVATE KEY BLOCK-----")) {
+                        privateKeyEditText.setText(sharedText.trim())
+                        Toast.makeText(this, "✅ Wklejono klucz prywatny", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
         }
     }
     
