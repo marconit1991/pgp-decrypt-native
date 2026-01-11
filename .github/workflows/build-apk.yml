@@ -43,7 +43,9 @@ jobs:
       run: chmod +x gradlew
       
     - name: Build APK
-      run: ./gradlew assembleDebug --no-daemon --stacktrace
+      run: |
+        export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+        ./gradlew assembleDebug --no-daemon --stacktrace
       env:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
         ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
