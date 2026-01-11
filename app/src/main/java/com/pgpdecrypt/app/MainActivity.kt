@@ -114,42 +114,67 @@ class MainActivity : AppCompatActivity() {
         val action = intent.action
         val type = intent.type
         
-        // Sprawdź czy to ACTION_SEND lub ACTION_VIEW z text/plain
-        if ((Intent.ACTION_SEND == action || Intent.ACTION_VIEW == action) && 
-            type != null && type.startsWith("text/plain")) {
-            
-            val sharedText = when {
-                intent.getStringExtra(Intent.EXTRA_TEXT) != null -> {
-                    intent.getStringExtra(Intent.EXTRA_TEXT)
-                }
-                intent.data != null -> {
-                    // Spróbuj odczytać z URI
-                    try {
-                        contentResolver.openInputStream(intent.data!!)?.bufferedReader()?.use { it.readText() }
-                    } catch (e: Exception) {
-                        Log.w("MainActivity", "Error reading from URI", e)
+        Log.d("MainActivity", "handleIncomingIntent: action=$action, type=$type")
+        
+        // Sprawdź czy to ACTION_SEND lub ACTION_VIEW
+        if (Intent.ACTION_SEND == action || Intent.ACTION_VIEW == action) {
+            // Akceptuj text/plain, brak typu, lub */* (niektóre aplikacje nie podają typu)
+            if (type == null || type.startsWith("text/") || type == "*/*") {
+                
+                val sharedText = when {
+                    intent.getStringExtra(Intent.EXTRA_TEXT) != null -> {
+                        Log.d("MainActivity", "Getting text from EXTRA_TEXT")
+                        intent.getStringExtra(Intent.EXTRA_TEXT)
+                    }
+                    intent.getCharSequenceExtra(Intent.EXTRA_TEXT) != null -> {
+                        Log.d("MainActivity", "Getting text from EXTRA_TEXT (CharSequence)")
+                        intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+                    }
+                    intent.data != null -> {
+                        // Spróbuj odczytać z URI
+                        Log.d("MainActivity", "Getting text from URI: ${intent.data}")
+                        try {
+                            contentResolver.openInputStream(intent.data!!)?.bufferedReader()?.use { it.readText() }
+                        } catch (e: Exception) {
+                            Log.w("MainActivity", "Error reading from URI", e)
+                            // Spróbuj też jako string
+                            intent.data.toString()
+                        }
+                    }
+                    else -> {
+                        Log.d("MainActivity", "No text found in Intent")
                         null
                     }
                 }
-                else -> null
-            }
-            
-            if (!sharedText.isNullOrBlank()) {
-                // Sprawdź czy to wygląda na wiadomość PGP
-                if (sharedText.contains("-----BEGIN PGP MESSAGE-----") || 
-                    sharedText.contains("-----BEGIN PGP PRIVATE KEY BLOCK-----")) {
+                
+                if (!sharedText.isNullOrBlank()) {
+                    Log.d("MainActivity", "Received text via Intent, length: ${sharedText.length}, preview: ${sharedText.take(100)}")
                     
-                    Log.d("MainActivity", "Received PGP content via Intent, length: ${sharedText.length}")
-                    
-                    // Jeśli to wiadomość PGP, wklej do pola
-                    if (sharedText.contains("-----BEGIN PGP MESSAGE-----")) {
+                    // Sprawdź czy to wygląda na wiadomość PGP (nawet jeśli nie ma dokładnego typu)
+                    if (sharedText.contains("-----BEGIN PGP MESSAGE-----") || 
+                        sharedText.contains("-----BEGIN PGP PRIVATE KEY BLOCK-----") ||
+                        sharedText.contains("BEGIN PGP")) {
+                        
+                        Log.d("MainActivity", "Detected PGP content via Intent")
+                        
+                        // Jeśli to wiadomość PGP, wklej do pola
+                        if (sharedText.contains("-----BEGIN PGP MESSAGE-----") || 
+                            sharedText.contains("BEGIN PGP MESSAGE")) {
+                            encryptedMessageEditText.setText(sharedText.trim())
+                            Toast.makeText(this, "✅ Wklejono wiadomość PGP", Toast.LENGTH_SHORT).show()
+                        }
+                        // Jeśli to klucz prywatny, wklej do pola klucza
+                        else if (sharedText.contains("-----BEGIN PGP PRIVATE KEY BLOCK-----") ||
+                                 sharedText.contains("BEGIN PGP PRIVATE KEY")) {
+                            privateKeyEditText.setText(sharedText.trim())
+                            Toast.makeText(this, "✅ Wklejono klucz prywatny", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        // Jeśli nie jest to PGP, ale użytkownik wybrał naszą aplikację, 
+                        // może chcieć wkleić tekst ręcznie - wklej do pola wiadomości
+                        Log.d("MainActivity", "Text doesn't look like PGP, but user selected our app - pasting anyway")
                         encryptedMessageEditText.setText(sharedText.trim())
-                        Toast.makeText(this, "✅ Wklejono wiadomość PGP", Toast.LENGTH_SHORT).show()
-                    }
-                    // Jeśli to klucz prywatny, wklej do pola klucza
-                    else if (sharedText.contains("-----BEGIN PGP PRIVATE KEY BLOCK-----")) {
-                        privateKeyEditText.setText(sharedText.trim())
-                        Toast.makeText(this, "✅ Wklejono klucz prywatny", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Wklejono tekst (sprawdź czy to PGP)", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
