@@ -5,7 +5,7 @@
     <string name="private_key_hint">Wklej swój klucz prywatny PGP tutaj...</string>
     <string name="decrypt_button">🔓 Odszyfruj</string>
     <string name="copy_button">📋 Kopiuj wynik</string>
-    <string name="decrypted_result_hint">Wynik rozszyfrowania pojawi się tutaj...</string>
+    <string name="decrypted_result_hint">Token pojawi się tutaj...</string>
     <string name="copy_success">Skopiowano do schowka!</string>
     <string name="decrypting">Odszyfrowywanie...</string>
     <string name="error_decrypt">Błąd odszyfrowywania</string>

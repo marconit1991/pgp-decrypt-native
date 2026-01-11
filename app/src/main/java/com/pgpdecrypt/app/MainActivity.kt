@@ -492,7 +492,7 @@ class MainActivity : AppCompatActivity() {
         }
         
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("Odszyfrowana wiadomość", decryptedText)
+        val clip = ClipData.newPlainText("Token", decryptedText)
         clipboard.setPrimaryClip(clip)
         
         Toast.makeText(this, getString(R.string.copy_success), Toast.LENGTH_SHORT).show()
