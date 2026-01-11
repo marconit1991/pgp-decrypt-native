@@ -301,52 +301,15 @@ class MainActivity : AppCompatActivity() {
             val secretKeyRingCollection = PGPSecretKeyRingCollection(decoderStream, fingerprintCalculator)
             Log.d("MainActivity", "Private key loaded successfully")
             
-            // Znajdź pierwszy klucz prywatny
-            var secretKey: PGPSecretKey? = null
-            val keyRings = secretKeyRingCollection.keyRings
-            while (keyRings.hasNext()) {
-                val keyRing = keyRings.next() as PGPSecretKeyRing
-                val keys = keyRing.secretKeys
-                while (keys.hasNext()) {
-                    val key = keys.next() as PGPSecretKey
-                    secretKey = key
-                    break
-                }
-                if (secretKey != null) break
-            }
-            
-            if (secretKey == null) {
-                throw Exception("Nie znaleziono klucza prywatnego. Upewnij się, że klucz zawiera nagłówki -----BEGIN PGP PRIVATE KEY BLOCK-----")
-            }
-            
-            // Wyodrębnij klucz prywatny (z hasłem lub bez)
-            // Używamy BcPBESecretKeyDecryptorBuilder zamiast JcePBESecretKeyDecryptorBuilder
-            // bo JCE może mieć problemy z SHA-1 na Androidzie
-            Log.d("MainActivity", "Extracting private key... (password provided: ${password.isNotEmpty()})")
-            val pgpPrivateKey = try {
-                val digestCalculatorProvider = BcPGPDigestCalculatorProvider()
-                secretKey.extractPrivateKey(
-                    BcPBESecretKeyDecryptorBuilder(digestCalculatorProvider)
-                        .build(password.toCharArray())
-                )
-            } catch (e: Exception) {
-                Log.e("MainActivity", "Error extracting private key", e)
-                if (password.isEmpty()) {
-                    throw Exception("Błąd wyodrębniania klucza prywatnego. Klucz może wymagać hasła. ${e.message}")
-                } else {
-                    throw Exception("Błąd wyodrębniania klucza prywatnego. Sprawdź czy hasło jest poprawne. ${e.message}")
-                }
-            }
-            Log.d("MainActivity", "Private key extracted successfully")
-            
-            // Wczytaj zaszyfrowaną wiadomość
+            // Wczytaj zaszyfrowaną wiadomość PRZED wyodrębnieniem klucza
+            // Musimy najpierw znaleźć KeyID z wiadomości, żeby dopasować odpowiedni klucz
             Log.d("MainActivity", "Loading encrypted message... (length: ${encryptedMessage.length})")
             val encryptedStream = ByteArrayInputStream(encryptedMessage.toByteArray(Charsets.UTF_8))
             val encryptedDecoderStream = PGPUtil.getDecoderStream(encryptedStream)
             val pgpObjectFactory = PGPObjectFactory(encryptedDecoderStream, fingerprintCalculator)
             Log.d("MainActivity", "Encrypted message loaded")
             
-            // Pobierz listę zaszyfrowanych danych - obsługuj różne formaty
+            // Pobierz listę zaszyfrowanych danych
             var encryptedDataList: PGPEncryptedDataList? = null
             var obj: Any? = pgpObjectFactory.nextObject()
             
@@ -358,18 +321,10 @@ class MainActivity : AppCompatActivity() {
                         break
                     }
                     is PGPOnePassSignatureList -> {
-                        // Pomiń podpisy i kontynuuj
                         obj = pgpObjectFactory.nextObject()
                         continue
                     }
-                    is PGPCompressedData -> {
-                        // Jeśli jest skompresowane, spróbuj wyodrębnić z tego
-                        val compressedFactory = PGPObjectFactory(obj.dataStream, fingerprintCalculator)
-                        obj = compressedFactory.nextObject()
-                        continue
-                    }
                     else -> {
-                        // Spróbuj następny obiekt
                         obj = try {
                             pgpObjectFactory.nextObject()
                         } catch (e: Exception) {
@@ -384,7 +339,7 @@ class MainActivity : AppCompatActivity() {
                 throw Exception("Nie znaleziono zaszyfrowanych danych. Sprawdź format wiadomości PGP.")
             }
             
-            // Znajdź odpowiedni zaszyfrowany obiekt
+            // Znajdź odpowiedni zaszyfrowany obiekt i jego KeyID
             var publicKeyEncryptedData: PGPPublicKeyEncryptedData? = null
             val encryptedDataObjects = encryptedDataList.encryptedDataObjects
             while (encryptedDataObjects.hasNext()) {
@@ -399,8 +354,69 @@ class MainActivity : AppCompatActivity() {
                 throw Exception("Nie znaleziono zaszyfrowanych danych kluczem publicznym")
             }
             
-            // Odszyfruj dane
-            Log.d("MainActivity", "Decrypting data... KeyID: ${publicKeyEncryptedData.keyID}")
+            val requiredKeyID = publicKeyEncryptedData.keyID
+            Log.d("MainActivity", "Required KeyID: $requiredKeyID")
+            
+            // Znajdź klucz prywatny pasujący do KeyID z wiadomości
+            var secretKey: PGPSecretKey? = null
+            val keyRings = secretKeyRingCollection.keyRings
+            while (keyRings.hasNext()) {
+                val keyRing = keyRings.next() as PGPSecretKeyRing
+                val keys = keyRing.secretKeys
+                while (keys.hasNext()) {
+                    val key = keys.next() as PGPSecretKey
+                    val keyID = key.keyID
+                    Log.d("MainActivity", "Checking key with KeyID: $keyID")
+                    if (keyID == requiredKeyID) {
+                        secretKey = key
+                        Log.d("MainActivity", "Found matching key!")
+                        break
+                    }
+                }
+                if (secretKey != null) break
+            }
+            
+            // Jeśli nie znaleziono pasującego KeyID, użyj pierwszego dostępnego klucza
+            if (secretKey == null) {
+                Log.w("MainActivity", "No matching KeyID found, using first available key")
+                val keyRings2 = secretKeyRingCollection.keyRings
+                while (keyRings2.hasNext()) {
+                    val keyRing = keyRings2.next() as PGPSecretKeyRing
+                    val keys = keyRing.secretKeys
+                    while (keys.hasNext()) {
+                        val key = keys.next() as PGPSecretKey
+                        secretKey = key
+                        Log.d("MainActivity", "Using first available key with KeyID: ${key.keyID}")
+                        break
+                    }
+                    if (secretKey != null) break
+                }
+            }
+            
+            if (secretKey == null) {
+                throw Exception("Nie znaleziono klucza prywatnego. Upewnij się, że klucz zawiera nagłówki -----BEGIN PGP PRIVATE KEY BLOCK-----")
+            }
+            
+            // Wyodrębnij klucz prywatny (z hasłem lub bez)
+            Log.d("MainActivity", "Extracting private key... (password provided: ${password.isNotEmpty()})")
+            val digestCalculatorProvider = BcPGPDigestCalculatorProvider()
+            val pgpPrivateKey = try {
+                secretKey.extractPrivateKey(
+                    BcPBESecretKeyDecryptorBuilder(digestCalculatorProvider)
+                        .build(password.toCharArray())
+                )
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error extracting private key", e)
+                if (password.isEmpty()) {
+                    throw Exception("Błąd wyodrębniania klucza prywatnego. Klucz może wymagać hasła. ${e.message}")
+                } else {
+                    throw Exception("Błąd wyodrębniania klucza prywatnego. Sprawdź czy hasło jest poprawne. ${e.message}")
+                }
+            }
+            Log.d("MainActivity", "Private key extracted successfully")
+            
+            // Odszyfruj dane używając dopasowanego klucza
+            Log.d("MainActivity", "Decrypting data with KeyID: $requiredKeyID")
             val dataDecryptorFactory = BcPublicKeyDataDecryptorFactory(pgpPrivateKey)
             
             var encryptedInputStream: InputStream? = null
