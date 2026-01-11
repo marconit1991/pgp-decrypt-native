@@ -377,6 +377,7 @@ class MainActivity : AppCompatActivity() {
             }
             
             // Jeśli nie znaleziono pasującego KeyID, użyj pierwszego dostępnego klucza
+            // Musimy ponownie przejść przez kolekcję, bo iterator mógł być już wyczerpany
             if (secretKey == null) {
                 Log.w("MainActivity", "No matching KeyID found, using first available key")
                 val keyRings2 = secretKeyRingCollection.keyRings
@@ -387,6 +388,23 @@ class MainActivity : AppCompatActivity() {
                         val key = keys.next() as PGPSecretKey
                         secretKey = key
                         Log.d("MainActivity", "Using first available key with KeyID: ${key.keyID}")
+                        break
+                    }
+                    if (secretKey != null) break
+                }
+            }
+            
+            // Jeśli nadal nie znaleziono, spróbuj jeszcze raz od początku
+            if (secretKey == null) {
+                Log.w("MainActivity", "Retrying key search from beginning")
+                val keyRings3 = secretKeyRingCollection.keyRings
+                while (keyRings3.hasNext()) {
+                    val keyRing = keyRings3.next() as PGPSecretKeyRing
+                    val keys = keyRing.secretKeys
+                    while (keys.hasNext()) {
+                        val key = keys.next() as PGPSecretKey
+                        secretKey = key
+                        Log.d("MainActivity", "Found key with KeyID: ${key.keyID} (will try to decrypt anyway)")
                         break
                     }
                     if (secretKey != null) break
