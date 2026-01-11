@@ -38,21 +38,16 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y coreutils findutils
-        export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
-        which uname
-        which xargs
         
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
       
     - name: Build APK
-      run: |
-        export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
-        ./gradlew assembleDebug --no-daemon --stacktrace
+      run: ./gradlew assembleDebug --no-daemon --stacktrace
       env:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
         ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
-        PATH: /usr/bin:/bin:/usr/sbin:/sbin:${{ env.PATH }}
+        PATH: /usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:${{ env.PATH }}
         
     - name: Upload APK
       uses: actions/upload-artifact@v4
