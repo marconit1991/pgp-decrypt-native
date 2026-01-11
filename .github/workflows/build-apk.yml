@@ -39,10 +39,11 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y coreutils findutils
         
-    - name: Build APK using Gradle
-      run: |
-        # Użyj java bezpośrednio z gradle wrapper jar
-        java -cp gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain assembleDebug --no-daemon --stacktrace
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+      
+    - name: Build APK
+      run: ./gradlew assembleDebug --no-daemon --stacktrace
       env:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
         ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
