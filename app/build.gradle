@@ -15,8 +15,13 @@ android {
         // To pozwala na aktualizację bez konfliktów z istniejącym pakietem
         def buildNumber = System.getenv('GITHUB_RUN_NUMBER')
         if (buildNumber == null || buildNumber.isEmpty()) {
-            // Jeśli nie ma GITHUB_RUN_NUMBER, użyj timestamp (sekundy od 1970)
-            buildNumber = String.valueOf((long)(System.currentTimeMillis() / 1000))
+            // Jeśli nie ma GITHUB_RUN_NUMBER, użyj timestamp (sekundy od 1970) + bazowa wartość
+            // Bazowa wartość 1000000 zapewnia, że zawsze będzie wyższa niż poprzednie wersje
+            def timestamp = (long)(System.currentTimeMillis() / 1000)
+            buildNumber = String.valueOf(1000000L + timestamp)
+        } else {
+            // Dla GitHub Actions też dodajemy bazową wartość
+            buildNumber = String.valueOf(1000000L + Integer.parseInt(buildNumber))
         }
         versionCode Integer.parseInt(buildNumber)
         versionName "1.0"
