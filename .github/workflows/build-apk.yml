@@ -38,6 +38,9 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y coreutils findutils
+        export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+        which uname
+        which xargs
         
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
@@ -49,7 +52,7 @@ jobs:
       env:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
         ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
-        PATH: ${{ env.PATH }}
+        PATH: /usr/bin:/bin:/usr/sbin:/sbin:${{ env.PATH }}
         
     - name: Upload APK
       uses: actions/upload-artifact@v4
