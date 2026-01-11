@@ -184,40 +184,48 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun showPasswordDialog(encryptedMessage: String, privateKeyText: String) {
-        val passwordInput = EditText(this).apply {
-            hint = getString(R.string.password_dialog_hint)
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-            setPadding(50, 30, 50, 30)
-            setTextColor(ContextCompat.getColor(this@MainActivity, android.R.color.white))
-            setHintTextColor(ContextCompat.getColor(this@MainActivity, android.R.color.darker_gray))
-        }
-        
-        val dialog = AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog)
-            .setTitle(getString(R.string.password_dialog_title))
-            .setMessage(getString(R.string.password_dialog_message))
-            .setView(passwordInput)
-            .setPositiveButton("Odszyfruj") { _, _ ->
-                val password = passwordInput.text?.toString() ?: ""
-                performDecryption(encryptedMessage, privateKeyText, password)
+        runOnUiThread {
+            val passwordInput = EditText(this).apply {
+                hint = getString(R.string.password_dialog_hint)
+                inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                setPadding(50, 30, 50, 30)
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.color_text_primary))
+                setHintTextColor(ContextCompat.getColor(this@MainActivity, R.color.color_text_secondary))
+                setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.color_surface))
             }
-            .setNegativeButton("Anuluj") { dialog, _ ->
-                decryptButton.isEnabled = true
-                decryptButton.text = getString(R.string.decrypt_button)
-                dialog.dismiss()
+            
+            val dialog = AlertDialog.Builder(this, R.style.AlertDialogTheme)
+                .setTitle(getString(R.string.password_dialog_title))
+                .setMessage(getString(R.string.password_dialog_message))
+                .setView(passwordInput)
+                .setPositiveButton(getString(R.string.password_dialog_positive)) { _, _ ->
+                    val password = passwordInput.text?.toString() ?: ""
+                    performDecryption(encryptedMessage, privateKeyText, password)
+                }
+                .setNegativeButton(getString(R.string.password_dialog_negative)) { dialog, _ ->
+                    decryptButton.isEnabled = true
+                    decryptButton.text = getString(R.string.decrypt_button)
+                    dialog.dismiss()
+                }
+                .setCancelable(false)
+                .create()
+            
+            dialog.setOnShowListener {
+                // Ustaw kolory przycisków
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.color_button_text))
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.color_text_secondary))
             }
-            .create()
-        
-        dialog.setOnShowListener {
-            // Ustaw kolory przycisków
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(ContextCompat.getColor(this@MainActivity, android.R.color.white))
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.color_primary))
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(ContextCompat.getColor(this@MainActivity, android.R.color.white))
+            
+            dialog.show()
+            
+            // Ustaw tło dialogu i upewnij się, że EditText jest widoczny
+            dialog.window?.setBackgroundDrawableResource(R.color.color_dialog_background)
+            
+            // Ustaw focus na EditText i pokaż klawiaturę
+            passwordInput.requestFocus()
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            imm.showSoftInput(passwordInput, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
         }
-        
-        dialog.show()
-        
-        // Ustaw tło dialogu
-        dialog.window?.setBackgroundDrawableResource(R.color.color_surface)
     }
     
     private fun performDecryption(encryptedMessage: String, privateKeyText: String, password: String) {
@@ -310,24 +318,35 @@ class MainActivity : AppCompatActivity() {
             Log.d("MainActivity", "Encrypted message loaded")
             
             // Pobierz listę zaszyfrowanych danych
+            // Przeszukaj wszystkie obiekty aż znajdziemy PGPEncryptedDataList
+            // Obsługuj również PGPCompressedData jeśli występuje
             var encryptedDataList: PGPEncryptedDataList? = null
             var obj: Any? = pgpObjectFactory.nextObject()
             
-            // Przeszukaj wszystkie obiekty aż znajdziemy PGPEncryptedDataList
             while (obj != null) {
                 when (obj) {
                     is PGPEncryptedDataList -> {
                         encryptedDataList = obj
+                        Log.d("MainActivity", "Found PGPEncryptedDataList")
                         break
                     }
                     is PGPOnePassSignatureList -> {
+                        Log.d("MainActivity", "Found PGPOnePassSignatureList, skipping")
                         obj = pgpObjectFactory.nextObject()
                         continue
                     }
+                    is PGPCompressedData -> {
+                        Log.d("MainActivity", "Found PGPCompressedData, decompressing...")
+                        val compressedFactory = PGPObjectFactory(obj.dataStream, fingerprintCalculator)
+                        obj = compressedFactory.nextObject()
+                        continue
+                    }
                     else -> {
+                        Log.d("MainActivity", "Found object type: ${obj.javaClass.simpleName}, trying next...")
                         obj = try {
                             pgpObjectFactory.nextObject()
                         } catch (e: Exception) {
+                            Log.w("MainActivity", "Error getting next object", e)
                             null
                         }
                         continue

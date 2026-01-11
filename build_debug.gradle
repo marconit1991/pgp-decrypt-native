@@ -1,0 +1,38 @@
+// Skrypt Gradle do kompilacji i uruchomienia debug_decrypt.kt
+// Używa repozytoriów z settings.gradle
+
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '1.9.0'
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.0"
+    implementation 'org.bouncycastle:bcprov-jdk15on:1.70'
+    implementation 'org.bouncycastle:bcpg-jdk15on:1.70'
+    implementation 'org.bouncycastle:bcpkix-jdk15on:1.70'
+}
+
+sourceSets {
+    main {
+        kotlin {
+            srcDirs = ['.']
+            include 'Main.kt'
+        }
+    }
+}
+
+compileKotlin {
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}
+
+task runDebug(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'MainKt'
+    standardInput = System.in
+    if (project.hasProperty('args')) {
+        args(project.property('args').split(' '))
+    }
+}
+
