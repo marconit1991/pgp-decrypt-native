@@ -22,8 +22,7 @@
             android:layout_marginBottom="24dp"
             android:textColor="@color/color_text_primary"
             android:singleLine="true"
-            android:gravity="start"
-            android:overflow="visible" />
+            android:gravity="start" />
 
         <TextView
             android:layout_width="match_parent"
