@@ -97,11 +97,12 @@ class MainActivity : AppCompatActivity() {
                 headerTitle.layoutParams = layoutParams
                 
                 // Uruchom animację przesuwania od prawej do lewej
+                // Dłuższy czas trwania = wolniejsza animacja, ale nadal 60 FPS dzięki LinearInterpolator
                 val animator = android.animation.ObjectAnimator.ofFloat(headerTitle, "translationX", screenWidth.toFloat(), -textWidth - screenWidth)
-                animator.duration = 5000 // 5 sekund na pełne przejście
+                animator.duration = 15000 // 15 sekund na pełne przejście (wolniej)
                 animator.repeatCount = android.animation.ObjectAnimator.INFINITE
                 animator.repeatMode = android.animation.ObjectAnimator.RESTART
-                animator.interpolator = android.view.animation.LinearInterpolator()
+                animator.interpolator = android.view.animation.LinearInterpolator() // Liniowy interpolator zapewnia stałą prędkość i 60 FPS
                 animator.start()
             }
             
