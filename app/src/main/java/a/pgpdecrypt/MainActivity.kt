@@ -81,6 +81,20 @@ class MainActivity : AppCompatActivity() {
             // Uruchom animację marquee dla nagłówka
             val headerTitle = findViewById<android.widget.TextView>(R.id.headerTitle)
             headerTitle?.isSelected = true
+            // Ustaw prędkość animacji marquee na 60 FPS (16ms = 1000ms/60)
+            try {
+                val scrollDelayField = android.widget.TextView::class.java.getDeclaredField("mMarquee")
+                scrollDelayField.isAccessible = true
+                val marquee = scrollDelayField.get(headerTitle)
+                if (marquee != null) {
+                    val scrollDelayMethod = marquee.javaClass.getDeclaredMethod("setScrollDelay", Int::class.java)
+                    scrollDelayMethod.isAccessible = true
+                    scrollDelayMethod.invoke(marquee, 16) // 16ms = 60 FPS dla płynnej animacji
+                }
+            } catch (e: Exception) {
+                // Jeśli nie uda się ustawić przez refleksję, użyj domyślnych wartości
+                Log.d("MainActivity", "Nie można ustawić scrollDelay, używam domyślnych wartości")
+            }
             
             // Przycisk odszyfrowywania
             decryptButton.setOnClickListener {
