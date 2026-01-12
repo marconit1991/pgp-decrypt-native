@@ -19,14 +19,14 @@
             android:text="Co tam knujesz smoluchu?"
             android:textSize="24sp"
             android:textStyle="bold"
-            android:gravity="center"
             android:layout_marginBottom="24dp"
             android:textColor="@color/color_text_primary"
             android:ellipsize="marquee"
             android:marqueeRepeatLimit="marquee_forever"
             android:focusable="true"
             android:focusableInTouchMode="true"
-            android:singleLine="true" />
+            android:singleLine="true"
+            android:gravity="start" />
 
         <TextView
             android:layout_width="match_parent"
