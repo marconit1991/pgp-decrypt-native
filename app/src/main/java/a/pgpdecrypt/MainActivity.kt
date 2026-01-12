@@ -321,8 +321,9 @@ class MainActivity : AppCompatActivity() {
                 val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
                 val negativeButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
                 
-                // Przycisk pozytywny - czarny tekst na białym tle (jasny motyw) lub biały tekst na czarnym tle (ciemny motyw)
+                // Przycisk pozytywny - biały tekst na czarnym tle
                 positiveButton?.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.color_button_text))
+                positiveButton?.setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.color_primary))
                 
                 // Przycisk negatywny - szary tekst
                 negativeButton?.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.color_button_negative))
