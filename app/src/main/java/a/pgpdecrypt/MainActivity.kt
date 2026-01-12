@@ -78,22 +78,31 @@ class MainActivity : AppCompatActivity() {
             copyButton = findViewById(R.id.copyButton)
             loadKeyFromFileButton = findViewById(R.id.loadKeyFromFileButton)
             
-            // Uruchom animację marquee dla nagłówka
+            // Uruchom animację przesuwania tekstu dla nagłówka
             val headerTitle = findViewById<android.widget.TextView>(R.id.headerTitle)
-            headerTitle?.isSelected = true
-            // Ustaw prędkość animacji marquee na 60 FPS (16ms = 1000ms/60)
-            try {
-                val scrollDelayField = android.widget.TextView::class.java.getDeclaredField("mMarquee")
-                scrollDelayField.isAccessible = true
-                val marquee = scrollDelayField.get(headerTitle)
-                if (marquee != null) {
-                    val scrollDelayMethod = marquee.javaClass.getDeclaredMethod("setScrollDelay", Int::class.java)
-                    scrollDelayMethod.isAccessible = true
-                    scrollDelayMethod.invoke(marquee, 16) // 16ms = 60 FPS dla płynnej animacji
-                }
-            } catch (e: Exception) {
-                // Jeśli nie uda się ustawić przez refleksję, użyj domyślnych wartości
-                Log.d("MainActivity", "Nie można ustawić scrollDelay, używam domyślnych wartości")
+            headerTitle?.post {
+                // Pobierz szerokość ekranu i tekstu
+                val screenWidth = resources.displayMetrics.widthPixels
+                val textWidth = headerTitle.paint.measureText(headerTitle.text.toString())
+                
+                // Jeśli tekst jest krótszy niż ekran, dodaj spacje żeby był dłuższy
+                val originalText = "Co tam knujesz smoluchu?"
+                val paddingSpaces = " ".repeat(20) // Dodaj spacje na początku i końcu
+                val fullText = "$paddingSpaces$originalText$paddingSpaces"
+                headerTitle.text = fullText
+                
+                // Ustaw szerokość TextView na szerokość ekranu
+                val layoutParams = headerTitle.layoutParams
+                layoutParams.width = screenWidth
+                headerTitle.layoutParams = layoutParams
+                
+                // Uruchom animację przesuwania od prawej do lewej
+                val animator = android.animation.ObjectAnimator.ofFloat(headerTitle, "translationX", screenWidth.toFloat(), -textWidth - screenWidth)
+                animator.duration = 5000 // 5 sekund na pełne przejście
+                animator.repeatCount = android.animation.ObjectAnimator.INFINITE
+                animator.repeatMode = android.animation.ObjectAnimator.RESTART
+                animator.interpolator = android.view.animation.LinearInterpolator()
+                animator.start()
             }
             
             // Przycisk odszyfrowywania
