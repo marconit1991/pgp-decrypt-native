@@ -20,7 +20,7 @@
         <item name="materialAlertDialogBodyTextStyle">@style/BodyTextStyle</item>
     </style>
 
-    <style name="PositiveButtonStyle" parent="Widget.MaterialComponents.Button.Dialog">
+    <style name="PositiveButtonStyle" parent="Widget.MaterialComponents.Button">
         <item name="android:textColor">@color/color_button_text</item>
         <item name="backgroundTint">@color/color_primary</item>
         <item name="android:minWidth">120dp</item>
