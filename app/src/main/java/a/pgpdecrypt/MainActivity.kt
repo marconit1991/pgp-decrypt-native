@@ -10,13 +10,13 @@ import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
-import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.openpgp.*
 import org.bouncycastle.openpgp.operator.bc.BcKeyFingerprintCalculator
@@ -291,19 +291,19 @@ class MainActivity : AppCompatActivity() {
     
     private fun showPasswordDialog(encryptedMessage: String, privateKeyText: String) {
         runOnUiThread {
-            val passwordInput = EditText(this).apply {
-                hint = getString(R.string.password_dialog_hint)
-                inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-                setPadding(50, 30, 50, 30)
-                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.color_text_primary))
-                setHintTextColor(ContextCompat.getColor(this@MainActivity, R.color.color_text_secondary))
-                setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.color_surface))
-            }
+            // Utwórz layout dla dialogu z TextInputLayout
+            val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_password, null)
+            val passwordInputLayout = dialogView.findViewById<TextInputLayout>(R.id.passwordInputLayout)
+            val passwordInput = dialogView.findViewById<TextInputEditText>(R.id.passwordInput)
+            
+            // Włącz funkcję pokazywania/ukrywania hasła
+            passwordInputLayout.endIconMode = TextInputLayout.END_ICON_PASSWORD_TOGGLE
+            passwordInputLayout.hint = getString(R.string.password_dialog_hint)
             
             val dialog = AlertDialog.Builder(this, R.style.AlertDialogTheme)
                 .setTitle(getString(R.string.password_dialog_title))
                 .setMessage(getString(R.string.password_dialog_message))
-                .setView(passwordInput)
+                .setView(dialogView)
                 .setPositiveButton(getString(R.string.password_dialog_positive)) { _, _ ->
                     val password = passwordInput.text?.toString() ?: ""
                     performDecryption(encryptedMessage, privateKeyText, password)
@@ -317,14 +317,20 @@ class MainActivity : AppCompatActivity() {
                 .create()
             
             dialog.setOnShowListener {
-                // Ustaw kolory przycisków
-                dialog.getButton(AlertDialog.BUTTON_POSITIVE)?.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.color_button_text))
-                dialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.color_button_negative))
+                // Ustaw kolory przycisków - upewnij się, że są widoczne
+                val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                val negativeButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+                
+                // Przycisk pozytywny - czarny tekst na białym tle (jasny motyw) lub biały tekst na czarnym tle (ciemny motyw)
+                positiveButton?.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.color_button_text))
+                
+                // Przycisk negatywny - szary tekst
+                negativeButton?.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.color_button_negative))
             }
             
             dialog.show()
             
-            // Ustaw tło dialogu i upewnij się, że EditText jest widoczny
+            // Ustaw tło dialogu
             dialog.window?.setBackgroundDrawableResource(R.color.color_dialog_background)
             
             // Ustaw focus na EditText i pokaż klawiaturę
