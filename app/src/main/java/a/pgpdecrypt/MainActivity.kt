@@ -78,6 +78,10 @@ class MainActivity : AppCompatActivity() {
             copyButton = findViewById(R.id.copyButton)
             loadKeyFromFileButton = findViewById(R.id.loadKeyFromFileButton)
             
+            // Uruchom animację marquee dla nagłówka
+            val headerTitle = findViewById<android.widget.TextView>(R.id.headerTitle)
+            headerTitle?.isSelected = true
+            
             // Przycisk odszyfrowywania
             decryptButton.setOnClickListener {
                 decryptPGPMessage()
